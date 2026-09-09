@@ -65,8 +65,8 @@ Push Service. Механика называется location push, у Apple по
 ## 3. Что нужно сделать
 
 1. **Миграция**: колонка `last_position_at` в `trips` и таблица
-   `trip_positions` — состав полей в [`domain.md`](../../docs/domain.md),
-   п. 3.2.
+   `trip_positions` — состав полей и типы в
+   [`contracts/schema.md`](../../contracts/schema.md).
 2. **Ручка сохранения координаты** `POST /api/v1/trips/{tripId}/positions`.
 3. **Ручка получения маршрута** `GET /api/v1/trips/{tripId}/positions`.
 4. **Запрос выборки поездок для опроса** — один SQL, который отдаёт только то,
