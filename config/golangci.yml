@@ -1,0 +1,124 @@
+# Пример конфига golangci-lint для сервиса курса.
+# Скопируйте в корень своего репозитория как .golangci.yml.
+#
+# За основу взят обязательный набор линтеров из боевых Go-сервисов, плюс depguard
+# с правилами слоёв из лабораторной работы 2.
+
+version: "2"
+
+run:
+  concurrency: 8
+  timeout: 5m
+  build-tags:
+    - integration
+
+issues:
+  max-issues-per-linter: 0
+  max-same-issues: 0
+
+linters:
+  default: none
+  enable:
+    - depguard        # правила зависимостей между слоями, см. лабораторную работу 2
+    - errcheck
+    - forbidigo
+    - gochecknoinits
+    - gocritic
+    - gocyclo
+    - goconst
+    - gosec
+    - govet
+    - ineffassign
+    - makezero
+    - prealloc
+    - revive
+    - staticcheck
+    - unconvert
+    - unparam
+    - unused
+    - whitespace
+
+  settings:
+    # Слои: домен ничего не знает про инфраструктуру, usecase не знает про транспорт.
+    # Так правило перестаёт быть договорённостью и становится частью сборки.
+    depguard:
+      rules:
+        domain:
+          files:
+            - "**/internal/domain/**"
+          deny:
+            - pkg: net/http
+              desc: домен не знает про транспорт
+            - pkg: github.com/go-chi/chi
+              desc: домен не знает про роутер
+            - pkg: github.com/jackc/pgx
+              desc: домен не знает про бд
+            - pkg: github.com/Masterminds/squirrel
+              desc: домен не строит SQL
+            - pkg: go.opentelemetry.io/otel
+              desc: домен не знает про телеметрию
+        usecase:
+          files:
+            - "**/internal/usecase/**"
+          deny:
+            - pkg: net/http
+              desc: usecase не знает про транспорт
+            - pkg: github.com/go-chi/chi
+              desc: usecase не знает про роутер
+            - pkg: github.com/jackc/pgx
+              desc: usecase работает через интерфейсы, а не через драйвер бд
+            - pkg: github.com/Masterminds/squirrel
+              desc: usecase не строит SQL
+
+    # Запрещает обращения через идентификатор с подчёркиванием, поэтому пакеты
+    # называем без snake_case: internal/adapter/http, а не internal/adapter/http_server.
+    forbidigo:
+      forbid:
+        - pattern: ^[A-Za-z0-9]{1,}_.*\.
+
+    revive:
+      rules:
+        - name: var-naming
+          disabled: true
+
+    unparam:
+      check-exported: true
+
+    unused:
+      field-writes-are-uses: false
+
+  exclusions:
+    generated: lax
+    presets:
+      - comments
+      - common-false-positives
+      - legacy
+      - std-error-handling
+    paths:
+      - third_party$
+      - builtin$
+      - examples$
+      # сгенерированный по OpenAPI и protobuf код не линтуем
+      - api/
+      - gen/
+
+formatters:
+  enable:
+    - gofumpt
+    - gci
+
+  settings:
+    gci:
+      sections:
+        - standard
+        - default
+        - localmodule
+    gofumpt:
+      extra-rules: true
+
+  exclusions:
+    generated: lax
+    paths:
+      - third_party$
+      - builtin$
+      - examples$

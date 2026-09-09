@@ -1,0 +1,3 @@
+schema_version = 1
+lab = 3
+components = ["postgres", "observability", "push"]
