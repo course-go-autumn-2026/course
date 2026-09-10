@@ -69,8 +69,8 @@ OTEL_RESOURCE_ATTRIBUTES=service.namespace=tripgo,deployment.environment=local
 ## 4. Push Service
 
 Заглушка. Принимает команду отправить уведомление, реальные пуши не шлёт, только
-отвечает и пишет в лог. Логи смотрим через
-`tripgoctl environment logs push-service`.
+отвечает и пишет в лог. Живёт вместе с остальным окружением, писать её не нужно.
+Логи смотрим через `tripgoctl environment logs push-service`.
 
 В работе 3 ходим в неё по HTTP, в работе 4 переводим на gRPC. Контракты:
 [`push-service.openapi.yaml`](../contracts/openapi/push-service.openapi.yaml) и
