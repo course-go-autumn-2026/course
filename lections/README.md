@@ -5,11 +5,11 @@
 
 | Лекции | К какой работе готовят | Слайды | Запись |
 |---|---|---|---|
-| 1–2 | [работа 1](../tasks/01-http-and-postgres/) — HTTP API и PostgreSQL | | |
-| 3–6 | [работа 2](../tasks/02-architecture-and-observability/) — архитектура, тесты, observability | | |
-| 7–8 | [работа 3](../tasks/03-positions-and-worker-pool/) — координаты и worker pool | | |
-| 9–10 | [работа 4](../tasks/04-grpc-and-events/) — gRPC и события | | |
-| 11–12 | [работа 5](../tasks/05-resilience-and-choice/) — устойчивость | | |
+| 1–2 | [работа 1](../homework/tasks/01-http-and-postgres/) — HTTP API и PostgreSQL | | |
+| 3–6 | [работа 2](../homework/tasks/02-architecture-and-observability/) — архитектура, тесты, observability | | |
+| 7–8 | [работа 3](../homework/tasks/03-positions-and-worker-pool/) — координаты и worker pool | | |
+| 9–10 | [работа 4](../homework/tasks/04-grpc-and-events/) — gRPC и события | | |
+| 11–12 | [работа 5](../homework/tasks/05-resilience-and-choice/) — устойчивость | | |
 
 Задание выдаётся после второй лекции пары: к этому моменту разобрано всё, что
 нужно для работы. Что именно требуется сдать — в описании работы, лекция его не
