@@ -132,9 +132,8 @@ PUSH_BACKOFF_JITTER=0.2
    выбирает неопубликованные
    события пачками по `OUTBOX_BATCH_SIZE`, публикует, проставляет
    `published_at`.
-4. Выборка идёт `FOR UPDATE SKIP LOCKED` — несколько реплик не берут одно
-   событие дважды. Как это выглядит в запросе —
-   [`contracts/sql/queries.md`](../../contracts/sql/queries.md).
+4. Выборка идёт `FOR UPDATE SKIP LOCKED` — несколько реплик publisher'а не
+   берут одно событие дважды.
 5. Ошибка публикации увеличивает `attempts`, пишет `last_error` и откладывает
    следующую попытку через `next_attempt_at` по тому же backoff, что и в п. 2.1.
 6. Порядок событий по одной поездке сохраняется.
