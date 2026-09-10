@@ -1,8 +1,8 @@
 # Схема данных
 
-Здесь описаны таблицы курса: что хранят, из каких полей состоят и какие правила
-закреплены в самой схеме. Таблицы появляются по мере работ, в каждом разделе
-указано, в какой.
+Здесь описаны все таблицы курса: что хранят, из каких полей состоят и какие
+правила закреплены в самой схеме. Таблицы появляются по мере работ, в каждом
+разделе указано, в какой.
 
 Готовых миграций мы не даём — их вы пишете сами. `CREATE TABLE` ниже приведены,
 чтобы не гадать про типы и ограничения: перенесите их в свои миграции, добавьте
@@ -126,5 +126,60 @@ CREATE INDEX trip_positions_trip_recorded_idx
 Индекс под выборку поездок для опроса вы добавляете сами — это отдельный пункт
 чек-листа работы 3.
 
-Таблицы для работ 4 и 5 — `processed_commands` и `outbox_events` — появятся
-здесь вместе с самими работами.
+---
+
+## `processed_commands` — обработанные команды
+
+Появляется в работе 4. Хранит идентификаторы команд, которые сервис уже
+обработал, чтобы повторная доставка не создала вторую поездку.
+
+```sql
+CREATE TABLE processed_commands (
+    command_id   UUID PRIMARY KEY,
+    trip_id      UUID NOT NULL REFERENCES trips(id) ON DELETE CASCADE,
+    processed_at TIMESTAMPTZ NOT NULL DEFAULT now()
+);
+
+CREATE INDEX processed_commands_processed_at_idx
+    ON processed_commands (processed_at);
+```
+
+`command_id` — первичный ключ: попытка вставить его второй раз даст конфликт, по
+нему и отличают повтор. Вставка идёт в одной транзакции с созданием поездки.
+
+---
+
+## `outbox_events` — исходящие события
+
+Появляется в работе 5, только в варианте A.
+
+```sql
+CREATE TABLE outbox_events (
+    id              UUID PRIMARY KEY,
+    aggregate_type  TEXT NOT NULL,
+    aggregate_id    UUID NOT NULL,
+    event_type      TEXT NOT NULL,
+    payload         JSONB NOT NULL,
+
+    created_at      TIMESTAMPTZ NOT NULL DEFAULT now(),
+    published_at    TIMESTAMPTZ,
+    attempts        INTEGER NOT NULL DEFAULT 0,
+    next_attempt_at TIMESTAMPTZ NOT NULL DEFAULT now(),
+    last_error      TEXT
+);
+
+CREATE INDEX outbox_events_pending_idx
+    ON outbox_events (next_attempt_at, created_at)
+    WHERE published_at IS NULL;
+```
+
+| Поле | Что хранит |
+|---|---|
+| `aggregate_type`, `aggregate_id` | к какой сущности относится событие: `trip` и его `id` |
+| `event_type` | что произошло, например `trip.completed` |
+| `payload` | тело события, которое уедет в топик |
+| `published_at` | пусто, пока не опубликовано; по этому полю и ищут неотправленные |
+| `attempts`, `next_attempt_at`, `last_error` | состояние повторов |
+
+Индекс частичный, только по неопубликованным: опубликованных со временем станет
+большинство, а publisher их никогда не читает.

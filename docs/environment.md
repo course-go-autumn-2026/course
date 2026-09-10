@@ -34,9 +34,11 @@ tripgoctl connect                # адреса и ссылки на веб-ин
 | OpenTelemetry Collector | принимает метрики и трейсы по OTLP | 2 |
 | Prometheus, Grafana, Jaeger | стоят за коллектором, там смотрим метрики и трейсы | 2 |
 | Push Service | заглушка, принимает команды на пуш | 3 |
+| Redpanda | брокер, совместимый с Kafka | 4 |
+| Redpanda Console | веб-интерфейс: смотреть топики и класть сообщения руками | 4 |
 
 Компоненты подключаются по мере необходимости: в работе 1 поднимается только
-PostgreSQL, к работе 3 — всё перечисленное. В работах 4 и 5 добавится брокер.
+PostgreSQL, к работе 4 — всё перечисленное.
 
 ## 3. Телеметрия идёт через коллектор
 
@@ -70,8 +72,9 @@ OTEL_RESOURCE_ATTRIBUTES=service.namespace=tripgo,deployment.environment=local
 отвечает и пишет в лог. Логи смотрим через
 `tripgoctl environment logs push-service`.
 
-В работе 3 ходим в неё по HTTP, в работе 4 переведём на gRPC. Контракт —
-[`push-service.openapi.yaml`](../contracts/openapi/push-service.openapi.yaml).
+В работе 3 ходим в неё по HTTP, в работе 4 переводим на gRPC. Контракты:
+[`push-service.openapi.yaml`](../contracts/openapi/push-service.openapi.yaml) и
+[`push.proto`](../contracts/proto/push/v1/push.proto).
 
 Коды ответов HTTP: `202` — команда принята, `400` — некорректный запрос, `429` —
 превышен лимит, в заголовке `Retry-After` указано, когда повторять, `503` —
@@ -80,9 +83,8 @@ OTEL_RESOURCE_ATTRIBUTES=service.namespace=tripgo,deployment.environment=local
 
 ### Управляемые отказы
 
-Заглушку можно заставить отвечать медленно и с ошибками. В работе 3 так
-проверяют, что сканер продолжает тикать, когда сосед тормозит; в работе 5 на этом
-же проверяют ретраи и лимитер. Настраивается на лету, адрес
+Заглушку можно заставить отвечать медленно и с ошибками — это нужно в работе 5,
+чтобы было на чём проверять backoff и rate limiter. Настраивается на лету, адрес
 админки лежит в `.env` в переменной `PUSH_ADMIN_URL`:
 
 ```bash
@@ -100,7 +102,20 @@ curl -fsS -X POST "$PUSH_ADMIN_URL/admin/behaviour" \
 Сервис должен переживать любую комбинацию этих настроек: не залипать, не копить
 горутины, не терять поездки. После проверки настройки сбрасываем обратно в нули.
 
-## 5. Проверить, что окружение живо
+## 5. Топики
+
+Создаются заранее, руками заводить не надо.
+
+| Топик | Партиций | Кто пишет | Кто читает |
+|---|---|---|---|
+| `trip.events.v1` | 3 | ваш сервис | внешние потребители |
+| `trip.commands.v1` | 3 | вы руками через Console | ваш сервис |
+| `trip.commands.v1.dlq` | 1 | ваш сервис | человек |
+
+Адрес брокера и ссылка на Console — в выводе `tripgoctl connect`. Через Console
+кладём команды в топик и смотрим, что уехало в события и в DLQ.
+
+## 6. Проверить, что окружение живо
 
 ```bash
 tripgoctl connect                                   # адреса и ссылки
@@ -108,5 +123,5 @@ tripgoctl environment logs push-service             # логи заглушки
 psql "$DATABASE_URL" -c 'select 1'
 ```
 
-Ссылки на Jaeger, Grafana и Prometheus печатает `tripgoctl connect` — открывайте
-оттуда, а не по запомненным портам.
+Ссылки на Jaeger, Grafana, Prometheus и Console печатает `tripgoctl connect` —
+открывайте оттуда, а не по запомненным портам.
