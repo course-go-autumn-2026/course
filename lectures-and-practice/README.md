@@ -5,7 +5,7 @@
 
 | Лекции | К какой работе готовят | Презентация | Конспект |
 |---|---|---|---|
-| 1–2 | [работа 1](../homework/tasks/01-http-and-postgres/) — HTTP API и PostgreSQL | [Презентация по HTTP API](https://github.com/course-go-autumn-2026/course-internal/blob/main/lectures-and-practice/lection1_HTTP_API.pdf) | Конспект по HTTP API - tbd |
+| 1–2 | [работа 1](../homework/tasks/01-http-and-postgres/) — HTTP API и PostgreSQL | [Презентация по HTTP API](https://github.com/course-go-autumn-2026/course-internal/blob/main/lectures-and-practice/lection1_HTTP_API.pdf) | [Конспект по HTTP API](lection1_HTTP_API_notes.md) |
 | 3–6 | [работа 2](../homework/tasks/02-architecture-and-observability/) — архитектура, тесты, observability | | |
 | 7–8 | [работа 3](../homework/tasks/03-positions-and-worker-pool/) — координаты и worker pool | | |
 | 9–10 | [работа 4](../homework/tasks/04-grpc-and-events/) — gRPC и события | | |
