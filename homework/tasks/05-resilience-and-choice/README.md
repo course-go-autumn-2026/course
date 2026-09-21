@@ -11,7 +11,7 @@
 
 Заглушку пушей в этой работе мы заставляем отвечать медленно и с ошибками — как
 это включается и как сбросить обратно, написано в
-[`docs/environment.md`](../../docs/environment.md), п. 4.
+[`environment.md`, п. 4](../../docs/environment.md#4-push-service).
 
 **Перед началом.** Кроме этого файла действуют все разделы из
 [`docs/conventions.md`](../../docs/conventions.md). В чек-листе они не
@@ -135,7 +135,7 @@ PUSH_BACKOFF_JITTER=0.2
 4. Выборка идёт `FOR UPDATE SKIP LOCKED` — несколько реплик publisher'а не
    берут одно событие дважды.
 5. Ошибка публикации увеличивает `attempts`, пишет `last_error` и откладывает
-   следующую попытку через `next_attempt_at` по тому же backoff, что и в п. 2.1.
+   следующую попытку через `next_attempt_at` по тому же backoff, что и в [п. 2.1](#21-retry-с-экспоненциальным-backoff).
 6. Порядок событий по одной поездке сохраняется.
 7. Метрики: `tripgo.outbox.pending`, `tripgo.outbox.published{result}`,
    `tripgo.outbox.age`.
