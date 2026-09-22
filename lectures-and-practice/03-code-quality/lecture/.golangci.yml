@@ -1,0 +1,34 @@
+version: "2"
+
+run:
+  timeout: 3m
+  tests: true
+
+linters:
+  default: none
+  enable:
+    - errcheck
+    - gosimple
+    - govet
+    - ineffassign
+    - staticcheck
+    - unused
+  settings:
+    gocyclo:
+      min-complexity: 15
+
+issues:
+  max-issues-per-linter: 10
+  new: false
+
+formatters:
+  enable:
+    - gci
+    - gofumpt
+  settings:
+    gci:
+      custom-order: true
+      sections:
+        - standard
+        - default
+        - prefix(code-quality-examples)

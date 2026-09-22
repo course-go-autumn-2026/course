@@ -1,0 +1,23 @@
+version: "2"
+
+run:
+  timeout: 3m
+  tests: true
+
+linters:
+  default: none
+  enable:
+    - errcheck
+    - ineffassign
+    - staticcheck
+  settings:
+    errcheck:
+      check-blank: true
+
+issues:
+  max-issues-per-linter: 10
+  new: false
+
+formatters:
+  enable:
+    - gofumpt

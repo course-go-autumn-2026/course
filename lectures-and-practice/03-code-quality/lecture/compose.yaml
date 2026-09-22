@@ -1,0 +1,20 @@
+services:
+  postgres:
+    image: postgres:16-alpine
+    environment:
+      POSTGRES_USER: lecture
+      POSTGRES_PASSWORD: lecture
+      POSTGRES_DB: lecture
+    ports:
+      - "5434:5432"
+    healthcheck:
+      test: ["CMD-SHELL", "pg_isready -U lecture -d lecture"]
+      interval: 1s
+      timeout: 3s
+      retries: 20
+    volumes:
+      - lecture-postgres:/var/lib/postgresql/data
+      - ./05-integration/migrations/001_create_users.sql:/docker-entrypoint-initdb.d/001_create_users.sql:ro
+
+volumes:
+  lecture-postgres:
