@@ -11,6 +11,10 @@ import (
 
 type Config struct {
 	HTTPAddr                string
+	HTTPReadTimeout         time.Duration
+	HTTPReadHeaderTimeout   time.Duration
+	HTTPWriteTimeout        time.Duration
+	HTTPIdleTimeout         time.Duration
 	LogLevel                slog.Level
 	ShutdownTimeout         time.Duration
 	DatabaseURL             string
@@ -26,6 +30,18 @@ func Load() (Config, error) {
 	var err error
 
 	if cfg.HTTPAddr, err = required("HTTP_ADDR"); err != nil {
+		return Config{}, err
+	}
+	if cfg.HTTPReadTimeout, err = duration("HTTP_READ_TIMEOUT"); err != nil {
+		return Config{}, err
+	}
+	if cfg.HTTPReadHeaderTimeout, err = duration("HTTP_READ_HEADER_TIMEOUT"); err != nil {
+		return Config{}, err
+	}
+	if cfg.HTTPWriteTimeout, err = duration("HTTP_WRITE_TIMEOUT"); err != nil {
+		return Config{}, err
+	}
+	if cfg.HTTPIdleTimeout, err = duration("HTTP_IDLE_TIMEOUT"); err != nil {
 		return Config{}, err
 	}
 	level, err := required("LOG_LEVEL")
