@@ -1,0 +1,6 @@
+.env
+.tripgo/
+.idea/
+.DS_Store
+/trip-service
+*.test
