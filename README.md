@@ -102,6 +102,35 @@ PostgreSQL. Поездка, история статуса и снимок пер
 транзакции. Миграция `00003` создаёт таблицу ключей; `make migrate-down` откатывает
 по одной миграции за вызов.
 
+## Запуск в Docker
+
+`Dockerfile` собирает бинарь в образе Go и переносит его в
+`distroless/static-debian12:nonroot`. В итоговом образе нет исходников, тестов и
+Go toolchain; процесс работает с UID/GID `65532:65532`. Размер образа при
+проверке для `linux/arm64` — **4 267 012 байт** (около 4,1 МиБ).
+
+Пример отдельного локального запуска сервиса рядом с PostgreSQL в Docker:
+
+```bash
+docker build -t trip-service:lab1 .
+docker network create trip-lab
+docker run -d --name trip-postgres --network trip-lab -p 55432:5432 \
+  -e POSTGRES_USER=tripgo -e POSTGRES_PASSWORD=tripgo -e POSTGRES_DB=tripgo \
+  postgres:17-alpine
+until docker exec trip-postgres pg_isready -U tripgo -d tripgo; do sleep 1; done
+
+docker_db_url='postgres://tripgo:tripgo@127.0.0.1:55432/tripgo?sslmode=disable'
+go tool goose -dir migrations postgres "$docker_db_url" up
+docker run --rm --name trip-service --network trip-lab -p 8080:8080 \
+  --env-file .env.example \
+  -e DATABASE_URL='postgres://tripgo:tripgo@trip-postgres:5432/tripgo?sslmode=disable' \
+  trip-service:lab1
+```
+
+Во втором терминале проверьте `curl -i localhost:8080/ready`; ожидается `200`.
+После остановки сервиса удалите проверочное окружение командами
+`docker rm -f trip-postgres` и `docker network rm trip-lab`.
+
 ## Решения
 
 - Транзакции открывает `TxManager.Do`. Он помещает `pgx.Tx` в контекст, при
@@ -120,4 +149,4 @@ PostgreSQL. Поездка, история статуса и снимок пер
   Для ЛР1 выбраны пять операций: `createTrip`, `getTrip`, `finishTrip`, `health`,
   `ready`. Ошибки поездок имеют формат `application/problem+json`.
 
-Сервис реализует обязательную часть ЛР1 и идемпотентное создание поездки.
+Сервис реализует обязательную часть ЛР1 и оба дополнительных задания.
