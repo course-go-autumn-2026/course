@@ -32,7 +32,6 @@ func (s *Service) Create(ctx context.Context, input CreateInput) (Trip, error) {
 	return trip, err
 }
 
-// CreateWithKey returns replayed=true when it returns a saved response for the key.
 func (s *Service) CreateWithKey(ctx context.Context, input CreateInput, key *uuid.UUID) (Trip, bool, error) {
 	var requestHash [32]byte
 	if key != nil {

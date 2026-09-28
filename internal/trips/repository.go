@@ -74,8 +74,6 @@ func (r *Repository) InsertHistory(ctx context.Context, tripID uuid.UUID, fromSt
 	return nil
 }
 
-// LockIdempotencyKey serializes requests using the same key for this transaction.
-// Hash collisions only serialize unrelated keys; the table primary key decides identity.
 func (r *Repository) LockIdempotencyKey(ctx context.Context, key uuid.UUID) error {
 	query, args, err := squirrel.Select().Column(squirrel.Expr("pg_advisory_xact_lock(hashtextextended(?::text, 0))", key.String())).
 		PlaceholderFormat(squirrel.Dollar).ToSql()
