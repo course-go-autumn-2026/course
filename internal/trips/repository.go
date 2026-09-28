@@ -2,6 +2,7 @@ package trips
 
 import (
 	"context"
+	"encoding/json"
 	"errors"
 	"fmt"
 	"time"
@@ -13,6 +14,12 @@ import (
 	"github.com/jackc/pgx/v5/pgconn"
 	"github.com/jackc/pgx/v5/pgtype"
 )
+
+type IdempotencyRecord struct {
+	RequestHash []byte
+	Trip        Trip
+	ExpiresAt   time.Time
+}
 
 var tripColumns = []string{
 	"id", "user_id", "driver_id",
@@ -63,6 +70,79 @@ func (r *Repository) InsertHistory(ctx context.Context, tripID uuid.UUID, fromSt
 	defer cancel()
 	if _, err := r.tx.Executor(queryCtx).Exec(queryCtx, query, args...); err != nil {
 		return fmt.Errorf("insert status history: %w", err)
+	}
+	return nil
+}
+
+// LockIdempotencyKey serializes requests using the same key for this transaction.
+// Hash collisions only serialize unrelated keys; the table primary key decides identity.
+func (r *Repository) LockIdempotencyKey(ctx context.Context, key uuid.UUID) error {
+	query, args, err := squirrel.Select().Column(squirrel.Expr("pg_advisory_xact_lock(hashtextextended(?::text, 0))", key.String())).
+		PlaceholderFormat(squirrel.Dollar).ToSql()
+	if err != nil {
+		return fmt.Errorf("build idempotency lock: %w", err)
+	}
+	queryCtx, cancel := context.WithTimeout(ctx, r.queryTimeout)
+	defer cancel()
+	if _, err := r.tx.Executor(queryCtx).Exec(queryCtx, query, args...); err != nil {
+		return fmt.Errorf("lock idempotency key: %w", err)
+	}
+	return nil
+}
+
+func (r *Repository) GetIdempotency(ctx context.Context, key uuid.UUID) (IdempotencyRecord, error) {
+	query, args, err := squirrel.Select("request_hash", "trip_snapshot", "expires_at").
+		From("trip_idempotency_keys").Where(squirrel.Eq{"key": key}).
+		PlaceholderFormat(squirrel.Dollar).ToSql()
+	if err != nil {
+		return IdempotencyRecord{}, fmt.Errorf("build get idempotency key: %w", err)
+	}
+	queryCtx, cancel := context.WithTimeout(ctx, r.queryTimeout)
+	defer cancel()
+	var record IdempotencyRecord
+	var snapshot []byte
+	if err := r.tx.Executor(queryCtx).QueryRow(queryCtx, query, args...).Scan(&record.RequestHash, &snapshot, &record.ExpiresAt); err != nil {
+		if errors.Is(err, pgx.ErrNoRows) {
+			return IdempotencyRecord{}, ErrNotFound
+		}
+		return IdempotencyRecord{}, fmt.Errorf("get idempotency key: %w", err)
+	}
+	if err := json.Unmarshal(snapshot, &record.Trip); err != nil {
+		return IdempotencyRecord{}, fmt.Errorf("decode saved trip: %w", err)
+	}
+	return record, nil
+}
+
+func (r *Repository) DeleteIdempotency(ctx context.Context, key uuid.UUID) error {
+	query, args, err := squirrel.Delete("trip_idempotency_keys").
+		Where(squirrel.Eq{"key": key}).PlaceholderFormat(squirrel.Dollar).ToSql()
+	if err != nil {
+		return fmt.Errorf("build delete idempotency key: %w", err)
+	}
+	queryCtx, cancel := context.WithTimeout(ctx, r.queryTimeout)
+	defer cancel()
+	if _, err := r.tx.Executor(queryCtx).Exec(queryCtx, query, args...); err != nil {
+		return fmt.Errorf("delete idempotency key: %w", err)
+	}
+	return nil
+}
+
+func (r *Repository) InsertIdempotency(ctx context.Context, key uuid.UUID, hash [32]byte, trip Trip, expiresAt time.Time) error {
+	snapshot, err := json.Marshal(trip)
+	if err != nil {
+		return fmt.Errorf("encode trip snapshot: %w", err)
+	}
+	query, args, err := squirrel.Insert("trip_idempotency_keys").
+		Columns("key", "request_hash", "trip_id", "trip_snapshot", "expires_at").
+		Values(key, hash[:], trip.ID, snapshot, expiresAt).
+		PlaceholderFormat(squirrel.Dollar).ToSql()
+	if err != nil {
+		return fmt.Errorf("build insert idempotency key: %w", err)
+	}
+	queryCtx, cancel := context.WithTimeout(ctx, r.queryTimeout)
+	defer cancel()
+	if _, err := r.tx.Executor(queryCtx).Exec(queryCtx, query, args...); err != nil {
+		return fmt.Errorf("insert idempotency key: %w", err)
 	}
 	return nil
 }

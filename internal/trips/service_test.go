@@ -166,6 +166,85 @@ END $$`, functionName, driverID)
 	}
 }
 
+func TestCreateWithKey(t *testing.T) {
+	service, pool := testService(t)
+	ctx, cancel := context.WithTimeout(context.Background(), 15*time.Second)
+	defer cancel()
+	driverID := uuid.New()
+	cleanupDriver(t, pool, driverID)
+	input := CreateInput{
+		UserID: uuid.New(), DriverID: driverID,
+		StartPoint: Point{Latitude: 1, Longitude: 2},
+		EndPoint:   Point{Latitude: 3, Longitude: 4}, Price: 100,
+	}
+	key := uuid.New()
+	start := make(chan struct{})
+	type result struct {
+		trip     Trip
+		replayed bool
+		err      error
+	}
+	results := make(chan result, 12)
+	var workers sync.WaitGroup
+	for range 12 {
+		workers.Add(1)
+		go func() {
+			defer workers.Done()
+			<-start
+			trip, replayed, err := service.CreateWithKey(ctx, input, &key)
+			results <- result{trip, replayed, err}
+		}()
+	}
+	close(start)
+	workers.Wait()
+	close(results)
+	var firstID uuid.UUID
+	var created, replayed int
+	for result := range results {
+		if result.err != nil {
+			t.Fatalf("concurrent keyed create: %v", result.err)
+		}
+		if firstID == uuid.Nil {
+			firstID = result.trip.ID
+		} else if result.trip.ID != firstID {
+			t.Fatalf("key produced different trips: %s and %s", firstID, result.trip.ID)
+		}
+		if result.replayed {
+			replayed++
+		} else {
+			created++
+		}
+	}
+	if created != 1 || replayed != 11 {
+		t.Fatalf("got %d creates and %d replays", created, replayed)
+	}
+	var count int
+	if err := pool.QueryRow(ctx, "SELECT count(*) FROM trips WHERE driver_id = $1", driverID).Scan(&count); err != nil || count != 1 {
+		t.Fatalf("saved trips: %d, %v", count, err)
+	}
+
+	changed := input
+	changed.Price++
+	if _, _, err := service.CreateWithKey(ctx, changed, &key); !errors.Is(err, ErrIdempotencyConflict) {
+		t.Fatalf("changed request: got %v, want idempotency conflict", err)
+	}
+	if _, err := service.Finish(ctx, firstID); err != nil {
+		t.Fatal(err)
+	}
+	snapshot, wasReplayed, err := service.CreateWithKey(ctx, input, &key)
+	if err != nil || !wasReplayed || snapshot.ID != firstID || snapshot.Status != StatusActive {
+		t.Fatalf("replay after finish: %+v, replayed %t, error %v", snapshot, wasReplayed, err)
+	}
+
+	if _, err := pool.Exec(ctx, "UPDATE trip_idempotency_keys SET expires_at = now() - interval '1 second' WHERE key = $1", key); err != nil {
+		t.Fatal(err)
+	}
+	newTrip, wasReplayed, err := service.CreateWithKey(ctx, changed, &key)
+	if err != nil || wasReplayed || newTrip.ID == firstID {
+		t.Fatalf("expired key: %+v, replayed %t, error %v", newTrip, wasReplayed, err)
+	}
+}
+
 func testService(t *testing.T) (*Service, *pgxpool.Pool) {
 	t.Helper()
 	databaseURL := os.Getenv("TEST_DATABASE_URL")

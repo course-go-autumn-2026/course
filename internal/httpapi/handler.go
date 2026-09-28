@@ -40,24 +40,28 @@ func NewHandler(service *trips.Service, pool *pgxpool.Pool, queryTimeout time.Du
 	})
 }
 
-func (h *Handler) CreateTrip(w http.ResponseWriter, r *http.Request, _ api.CreateTripParams) {
+func (h *Handler) CreateTrip(w http.ResponseWriter, r *http.Request, params api.CreateTripParams) {
 	var request api.TripData
 	if err := decodeCreateRequest(w, r, &request); err != nil {
 		h.writeProblem(w, r, "invalid_request")
 		return
 	}
-	trip, err := h.service.Create(r.Context(), trips.CreateInput{
+	trip, replayed, err := h.service.CreateWithKey(r.Context(), trips.CreateInput{
 		UserID: request.UserId, DriverID: request.DriverId,
 		StartPoint: trips.Point{Latitude: request.StartPoint.Latitude, Longitude: request.StartPoint.Longitude},
 		EndPoint:   trips.Point{Latitude: request.EndPoint.Latitude, Longitude: request.EndPoint.Longitude},
 		Price:      request.Price,
-	})
+	}, params.IdempotencyKey)
 	if err != nil {
 		h.writeTripError(w, r, err)
 		return
 	}
 	w.Header().Set("Location", "/api/v1/trips/"+trip.ID.String())
-	h.writeJSON(w, r, http.StatusCreated, toAPITrip(trip))
+	status := http.StatusCreated
+	if replayed {
+		status = http.StatusOK
+	}
+	h.writeJSON(w, r, status, toAPITrip(trip))
 }
 
 func (h *Handler) GetTrip(w http.ResponseWriter, r *http.Request, tripID api.TripId) {
@@ -162,6 +166,8 @@ func (h *Handler) writeTripError(w http.ResponseWriter, r *http.Request, err err
 		h.writeProblem(w, r, "trip_completed")
 	case errors.Is(err, trips.ErrDriverBusy):
 		h.writeProblem(w, r, "driver_busy")
+	case errors.Is(err, trips.ErrIdempotencyConflict):
+		h.writeProblem(w, r, "idempotency_conflict")
 	default:
 		h.logger.ErrorContext(r.Context(), "request failed", "error", err, "method", r.Method, "path", r.URL.Path)
 		h.writeProblem(w, r, "internal_error")
@@ -196,6 +202,9 @@ func problemFor(code, path string) api.Problem {
 	case "driver_busy":
 		problem.Status, problem.Title, problem.Type = http.StatusConflict, "Driver busy", "https://tripgo.example/problems/driver-busy"
 		detail = "Driver already has an active trip"
+	case "idempotency_conflict":
+		problem.Status, problem.Title, problem.Type = http.StatusConflict, "Idempotency conflict", "https://tripgo.example/problems/idempotency-conflict"
+		detail = "Idempotency-Key was already used with a different request body"
 	}
 	problem.Detail = &detail
 	problem.Instance = &path

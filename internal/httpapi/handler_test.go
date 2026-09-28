@@ -120,6 +120,33 @@ func TestTripHTTPContract(t *testing.T) {
 	assertProblem(request(http.MethodGet, missing, "", ""), http.StatusNotFound, "trip_not_found")
 	assertProblem(request(http.MethodPost, missing+"/finish", "", ""), http.StatusNotFound, "trip_not_found")
 
+	keyedDriverID := uuid.New()
+	defer func() {
+		cleanupCtx, cleanupCancel := context.WithTimeout(context.Background(), 5*time.Second)
+		defer cleanupCancel()
+		if _, err := pool.Exec(cleanupCtx, "DELETE FROM trips WHERE driver_id = $1", keyedDriverID); err != nil {
+			t.Errorf("delete keyed trip: %v", err)
+		}
+	}()
+	keyedBody := strings.Replace(validBody, driverID.String(), keyedDriverID.String(), 1)
+	key := uuid.NewString()
+	requestWithKey := func(body, header string) *httptest.ResponseRecorder {
+		t.Helper()
+		req := httptest.NewRequest(http.MethodPost, "/api/v1/trips", strings.NewReader(body))
+		req.Header.Set("Content-Type", "application/json")
+		req.Header.Set("Idempotency-Key", header)
+		response := httptest.NewRecorder()
+		router.ServeHTTP(response, req)
+		return response
+	}
+	first := requestWithKey(keyedBody, key)
+	second := requestWithKey(keyedBody, key)
+	if first.Code != http.StatusCreated || second.Code != http.StatusOK || first.Body.String() != second.Body.String() ||
+		first.Header().Get("Location") != second.Header().Get("Location") {
+		t.Fatalf("idempotency responses: first %d %s, second %d %s", first.Code, first.Body.String(), second.Code, second.Body.String())
+	}
+	assertProblem(requestWithKey(strings.Replace(keyedBody, `"price":1450`, `"price":1451`, 1), key), http.StatusConflict, "idempotency_conflict")
+	assertProblem(requestWithKey(keyedBody, "invalid"), http.StatusBadRequest, "invalid_request")
 	closedPool, err := pgxpool.New(ctx, databaseURL)
 	if err != nil {
 		t.Fatal(err)
