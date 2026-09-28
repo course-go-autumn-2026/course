@@ -1,4 +1,4 @@
-.PHONY: run generate migrate migrate-down
+.PHONY: run generate migrate migrate-down test
 
 generate:
 	go tool oapi-codegen -config api/oapi-codegen.yaml contracts/openapi/trip-service.openapi.yaml
@@ -11,3 +11,6 @@ migrate-down:
 
 run:
 	@set -a; . ./.env.example; . ./.env; set +a; go run ./cmd/trip-service
+
+test:
+	go test -race ./...
