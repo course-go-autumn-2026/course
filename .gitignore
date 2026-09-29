@@ -1,0 +1,5 @@
+.env
+.tripgo/
+bin/
+coverage.out
+.DS_Store

@@ -1,31 +1,105 @@
-# Разработка микросервисов на Go
+# Trip Service
 
-Материалы курса: лабораторные работы и лекции.
+Сервис управления поездками. Выполнен в рамках лабораторной работы 1 курса Go.
 
-| Что | Где |
-|---|---|
-| Лабораторные работы, документация, контракты | [`homework/`](homework/) |
-| Слайды и записи занятий | [`lectures-and-practice/`](lectures-and-practice/) |
+## Требования
 
-## С чего начать
+- Go 1.27 или новее;
+- Docker Desktop;
+- `tripgoctl`, доступный в `PATH`.
 
-1. [`homework/README.md`](homework/README.md) — какой сервис строим, дорожная
-   карта по работам, стек и правила игры.
-2. [`homework/docs/getting-started.md`](homework/docs/getting-started.md) — что
-   сделать до первой работы: завести репозиторий, поднять окружение, поставить
-   инструменты.
-3. [`course-go-autumn-2026/template`](https://github.com/course-go-autumn-2026/template)
-   — форкаете себе, там и работаете.
+## Запуск
 
-Все пять работ делаются в одном репозитории, каждая следующая продолжает
-предыдущую.
+1. Поднять локальное окружение с PostgreSQL:
 
-## Что где искать дальше
+   ```bash
+   tripgoctl cluster start
+   tripgoctl environment start
+   tripgoctl connect
+   ```
 
-| Вопрос | Файл |
-|---|---|
-| Как оценивают, как проходит защита, что со сроками | [`homework/docs/grading.md`](homework/docs/grading.md) |
-| Что за домен, откуда взялись поездки и координаты | [`homework/docs/domain.md`](homework/docs/domain.md) |
-| Какие требования действуют во всех работах | [`homework/docs/conventions.md`](homework/docs/conventions.md) |
-| Как поднять окружение и откуда брать адреса | [`homework/docs/environment.md`](homework/docs/environment.md) |
-| Какие ручки, события и таблицы зафиксированы | [`homework/contracts/`](homework/contracts/) |
+2. Убедиться, что в `.env` есть все переменные из `.env.example`. Значение
+   `DATABASE_URL`, созданное `tripgoctl`, заменять не нужно.
+
+3. Применить миграции и запустить сервис:
+
+   ```bash
+   make migrate
+   make run
+   ```
+
+По умолчанию сервис слушает `http://localhost:8080`.
+
+## Команды
+
+| Команда | Назначение |
+| --- | --- |
+| `make generate` | сгенерировать код из OpenAPI-контракта |
+| `make migrate` | применить миграции PostgreSQL |
+| `make run` | запустить сервис |
+| `make test` | запустить тесты с race detector |
+
+Дополнительно проект можно собрать командой:
+
+```bash
+go build ./...
+```
+
+## Переменные окружения
+
+| Переменная | Назначение |
+| --- | --- |
+| `HTTP_ADDR` | адрес HTTP-сервера |
+| `LOG_LEVEL` | уровень логирования |
+| `SHUTDOWN_TIMEOUT` | максимальное время graceful shutdown |
+| `HTTP_READ_TIMEOUT` | таймаут чтения запроса |
+| `HTTP_READ_HEADER_TIMEOUT` | таймаут чтения заголовков |
+| `HTTP_WRITE_TIMEOUT` | таймаут записи ответа |
+| `HTTP_IDLE_TIMEOUT` | таймаут простоя соединения |
+| `DATABASE_URL` | строка подключения к PostgreSQL |
+| `DATABASE_MAX_CONNS` | максимальное число соединений в пуле |
+| `DATABASE_MIN_CONNS` | минимальное число соединений в пуле |
+| `DATABASE_MAX_CONN_LIFETIME` | максимальное время жизни соединения |
+| `DATABASE_CONNECT_TIMEOUT` | таймаут подключения и начального Ping |
+| `DATABASE_QUERY_TIMEOUT` | таймаут SQL-запроса |
+
+Пример безопасных значений находится в `.env.example`. Локальный `.env` не
+коммитится.
+
+## HTTP API
+
+- `GET /health` — проверка, что процесс запущен;
+- `GET /ready` — проверка доступности PostgreSQL;
+- `POST /api/v1/trips` — создать поездку;
+- `GET /api/v1/trips/{tripId}` — получить поездку;
+- `POST /api/v1/trips/{tripId}/finish` — завершить поездку.
+
+Контракт API находится в `contracts/openapi/trip-service.openapi.yaml`. Ошибки
+бизнес-операций возвращаются в формате `application/problem+json`.
+
+## Решения
+
+### Уровень изоляции транзакций
+
+Используется `Read Committed` — стандартный уровень изоляции PostgreSQL. Для
+создания поездки конкурентность защищена уникальным частичным индексом. Для
+завершения поездки используется условный `UPDATE` только для строк со статусом
+`active`, поэтому два одновременных запроса не смогут завершить одну поездку
+дважды.
+
+### Менеджер транзакций
+
+`TransactionManager.Do` открывает транзакцию и сохраняет её в `context`.
+Репозитории берут исполнителя из контекста: внутри `Do` это транзакция, вне неё
+— пул соединений. Вложенный вызов `Do` использует уже существующую транзакцию.
+При ошибке или panic выполняется rollback, при успешном выполнении — commit.
+
+Создание и завершение поездки записывают изменения в `trips` и
+`trip_status_history` в одной транзакции.
+
+### Одна активная поездка у водителя
+
+В PostgreSQL создан уникальный частичный индекс
+`trips_driver_active_unique_idx` по `driver_id` для строк со статусом `active`.
+Нарушение этого индекса определяется по коду PostgreSQL `23505` и превращается
+в HTTP-ошибку `409 driver_busy`.
