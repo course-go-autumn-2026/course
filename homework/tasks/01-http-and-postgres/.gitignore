@@ -1,0 +1,5 @@
+.env
+.tripgo/
+/bin/
+trip-service
+*.exe

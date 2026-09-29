@@ -1,0 +1,432 @@
+openapi: 3.0.3
+info:
+  title: TripGo Trip Service API
+  version: 1.1.0
+  description: Кумулятивный контракт Trip Service начиная с лабораторной работы 2.
+servers:
+- url: http://localhost:8080
+tags:
+- name: Trips
+- name: Positions
+- name: Service
+paths:
+  /api/v1/trips:
+    post:
+      tags:
+      - Trips
+      summary: Создать поездку
+      operationId: createTrip
+      parameters:
+      - $ref: '#/components/parameters/IdempotencyKey'
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/TripData'
+            example:
+              user_id: 5cb72c04-7650-45c9-a79b-bcdba0631e0c
+              driver_id: 8860b315-ec86-42eb-a17c-7c163d721ff5
+              start_point:
+                latitude: 59.9398
+                longitude: 30.3146
+              end_point:
+                latitude: 59.929
+                longitude: 30.3626
+              price: 1450
+      responses:
+        '201':
+          description: Поездка создана
+          headers:
+            Location:
+              description: URI созданной поездки
+              schema:
+                type: string
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Trip'
+        '400':
+          $ref: '#/components/responses/BadRequest'
+        '409':
+          $ref: '#/components/responses/CreateTripConflict'
+        '500':
+          $ref: '#/components/responses/InternalError'
+  /api/v1/trips/{tripId}:
+    get:
+      tags:
+      - Trips
+      summary: Получить поездку
+      operationId: getTrip
+      parameters:
+      - $ref: '#/components/parameters/TripId'
+      responses:
+        '200':
+          description: Поездка
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Trip'
+        '400':
+          $ref: '#/components/responses/BadRequest'
+        '404':
+          $ref: '#/components/responses/TripNotFound'
+        '500':
+          $ref: '#/components/responses/InternalError'
+  /api/v1/trips/{tripId}/finish:
+    post:
+      tags:
+      - Trips
+      summary: Завершить поездку
+      description: Переводит активную поездку в статус completed.
+      operationId: finishTrip
+      parameters:
+      - $ref: '#/components/parameters/TripId'
+      responses:
+        '200':
+          description: Поездка завершена
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Trip'
+        '400':
+          $ref: '#/components/responses/BadRequest'
+        '404':
+          $ref: '#/components/responses/TripNotFound'
+        '409':
+          $ref: '#/components/responses/TripCompleted'
+        '500':
+          $ref: '#/components/responses/InternalError'
+  /health:
+    get:
+      tags:
+      - Service
+      summary: Liveness
+      operationId: health
+      responses:
+        '200':
+          description: Процесс работает
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/HealthResponse'
+  /ready:
+    get:
+      tags:
+      - Service
+      summary: Readiness
+      operationId: ready
+      responses:
+        '200':
+          description: Сервис готов
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/HealthResponse'
+        '503':
+          description: PostgreSQL недоступен
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/HealthResponse'
+  /api/v1/trips/{tripId}/positions:
+    post:
+      tags:
+      - Positions
+      summary: Сохранить координату поездки
+      operationId: createTripPosition
+      description: Координаты разрешено добавлять только в активную поездку.
+      parameters:
+      - $ref: '#/components/parameters/TripId'
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/PositionData'
+            example:
+              coordinates:
+                latitude: 59.9343
+                longitude: 30.3351
+              recorded_at: '2026-09-01T10:05:00Z'
+      responses:
+        '201':
+          description: Координата сохранена
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/TripPosition'
+        '400':
+          $ref: '#/components/responses/BadRequest'
+        '404':
+          $ref: '#/components/responses/TripNotFound'
+        '409':
+          $ref: '#/components/responses/TripCompleted'
+        '500':
+          $ref: '#/components/responses/InternalError'
+    get:
+      tags:
+      - Positions
+      summary: Получить маршрут поездки
+      operationId: listTripPositions
+      description: Возвращает все точки маршрута, отсортированные по recorded_at по возрастанию.
+      parameters:
+      - $ref: '#/components/parameters/TripId'
+      responses:
+        '200':
+          description: Маршрут
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/TripPositionsResponse'
+        '400':
+          $ref: '#/components/responses/BadRequest'
+        '404':
+          $ref: '#/components/responses/TripNotFound'
+        '500':
+          $ref: '#/components/responses/InternalError'
+components:
+  parameters:
+    IdempotencyKey:
+      name: Idempotency-Key
+      in: header
+      required: false
+      description: >-
+        Ключ идемпотентности, генерирует клиент. Повторный запрос с тем же ключом
+        и тем же телом возвращает уже созданную поездку и 200, с тем же ключом и
+        другим телом — 409 idempotency_conflict. Заголовок относится к заданию со
+        звёздочкой лабораторной работы 1, в основной части можно игнорировать.
+      schema:
+        type: string
+        format: uuid
+    TripId:
+      name: tripId
+      in: path
+      required: true
+      description: UUID поездки
+      schema:
+        type: string
+        format: uuid
+  schemas:
+    Coordinates:
+      type: object
+      additionalProperties: false
+      description: Географические координаты WGS 84.
+      required:
+      - latitude
+      - longitude
+      properties:
+        latitude:
+          type: number
+          format: double
+          minimum: -90
+          maximum: 90
+          example: 59.9398
+        longitude:
+          type: number
+          format: double
+          minimum: -180
+          maximum: 180
+          example: 30.3146
+    TripData:
+      type: object
+      additionalProperties: false
+      required:
+      - user_id
+      - driver_id
+      - start_point
+      - end_point
+      - price
+      properties:
+        user_id:
+          type: string
+          format: uuid
+        driver_id:
+          type: string
+          format: uuid
+        start_point:
+          $ref: '#/components/schemas/Coordinates'
+        end_point:
+          $ref: '#/components/schemas/Coordinates'
+        price:
+          type: integer
+          format: int64
+          minimum: 0
+          example: 1450
+          description: 'Стоимость поездки в целых рублях. Это учебное упрощение: копейки не используются.'
+    TripStatus:
+      type: string
+      enum:
+      - active
+      - completed
+    Trip:
+      allOf:
+      - $ref: '#/components/schemas/TripData'
+      - type: object
+        additionalProperties: false
+        required:
+        - id
+        - status
+        - started_at
+        properties:
+          id:
+            type: string
+            format: uuid
+          status:
+            $ref: '#/components/schemas/TripStatus'
+          started_at:
+            type: string
+            format: date-time
+          finished_at:
+            type: string
+            format: date-time
+            nullable: true
+          last_position_at:
+            type: string
+            format: date-time
+            nullable: true
+    PositionData:
+      type: object
+      additionalProperties: false
+      required:
+      - coordinates
+      - recorded_at
+      properties:
+        coordinates:
+          $ref: '#/components/schemas/Coordinates'
+        recorded_at:
+          type: string
+          format: date-time
+          description: Время фиксации координаты на мобильном устройстве.
+    TripPosition:
+      allOf:
+      - $ref: '#/components/schemas/PositionData'
+      - type: object
+        additionalProperties: false
+        required:
+        - id
+        - trip_id
+        properties:
+          id:
+            type: integer
+            format: int64
+          trip_id:
+            type: string
+            format: uuid
+    TripPositionsResponse:
+      type: object
+      additionalProperties: false
+      required:
+      - positions
+      properties:
+        positions:
+          type: array
+          items:
+            $ref: '#/components/schemas/TripPosition'
+    HealthResponse:
+      type: object
+      additionalProperties: false
+      required:
+      - status
+      properties:
+        status:
+          type: string
+          enum:
+          - ok
+          - unavailable
+    Problem:
+      type: object
+      description: Problem Details for HTTP APIs (RFC 9457) с дополнительным полем code.
+      required:
+      - type
+      - title
+      - status
+      - code
+      properties:
+        type:
+          type: string
+        title:
+          type: string
+        status:
+          type: integer
+          format: int32
+        detail:
+          type: string
+        instance:
+          type: string
+        code:
+          type: string
+  responses:
+    BadRequest:
+      description: Некорректный запрос
+      content:
+        application/problem+json:
+          schema:
+            $ref: '#/components/schemas/Problem'
+          example:
+            type: https://tripgo.example/problems/invalid-request
+            title: Invalid request
+            status: 400
+            detail: Request validation failed
+            code: invalid_request
+    TripNotFound:
+      description: Поездка не найдена
+      content:
+        application/problem+json:
+          schema:
+            $ref: '#/components/schemas/Problem'
+          example:
+            type: https://tripgo.example/problems/trip-not-found
+            title: Trip not found
+            status: 404
+            detail: Trip was not found
+            code: trip_not_found
+    TripCompleted:
+      description: Поездка уже завершена
+      content:
+        application/problem+json:
+          schema:
+            $ref: '#/components/schemas/Problem'
+          example:
+            type: https://tripgo.example/problems/trip-completed
+            title: Trip completed
+            status: 409
+            detail: Operation is not allowed for a completed trip
+            code: trip_completed
+    CreateTripConflict:
+      description: >-
+        Конфликт при создании поездки: у водителя уже есть активная поездка либо
+        ключ идемпотентности повторно использован с другим телом запроса.
+      content:
+        application/problem+json:
+          schema:
+            $ref: '#/components/schemas/Problem'
+          examples:
+            driverBusy:
+              summary: У водителя уже есть активная поездка
+              value:
+                type: https://tripgo.example/problems/driver-busy
+                title: Driver busy
+                status: 409
+                detail: Driver already has an active trip
+                code: driver_busy
+            idempotencyConflict:
+              summary: Тот же ключ идемпотентности с другим телом
+              value:
+                type: https://tripgo.example/problems/idempotency-conflict
+                title: Idempotency conflict
+                status: 409
+                detail: Idempotency-Key was already used with a different request body
+                code: idempotency_conflict
+    InternalError:
+      description: Внутренняя ошибка
+      content:
+        application/problem+json:
+          schema:
+            $ref: '#/components/schemas/Problem'
+          example:
+            type: https://tripgo.example/problems/internal-error
+            title: Internal Server Error
+            status: 500
+            detail: Internal server error
+            code: internal_error
