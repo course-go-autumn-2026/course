@@ -1,0 +1,13 @@
+.git
+.tripgo
+.env
+.env.*
+.vscode
+.idea
+/bin
+trip-service
+*.exe
+*.test
+*_test.go
+coverage
+dist
