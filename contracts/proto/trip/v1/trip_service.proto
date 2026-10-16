@@ -1,0 +1,85 @@
+syntax = "proto3";
+
+package tripgo.trip.v1;
+
+option go_package = "github.com/example/tripgo/gen/trip/v1;tripv1";
+
+import "google/protobuf/timestamp.proto";
+
+// Заготовка контракта для лабораторной работы 4.
+// В отличие от push.proto и trip_events.proto, это ВАШ контракт:
+// его можно и нужно дополнять. Требования — tasks/04-grpc-and-events, §4.1.
+service TripService {
+  rpc CreateTrip(CreateTripRequest) returns (Trip);
+  rpc GetTrip(GetTripRequest) returns (Trip);
+  rpc FinishTrip(FinishTripRequest) returns (Trip);
+  rpc AddPosition(AddPositionRequest) returns (Position);
+  rpc ListPositions(ListPositionsRequest) returns (ListPositionsResponse);
+
+  // Задание со звёздочкой: подписка на координаты поездки.
+  // rpc WatchTripPositions(WatchTripPositionsRequest) returns (stream Position);
+}
+
+message Coordinates {
+  double latitude = 1;
+  double longitude = 2;
+}
+
+enum TripStatus {
+  TRIP_STATUS_UNSPECIFIED = 0;
+  TRIP_STATUS_ACTIVE = 1;
+  TRIP_STATUS_COMPLETED = 2;
+}
+
+message Trip {
+  string id = 1;
+  string user_id = 2;
+  string driver_id = 3;
+  Coordinates start_point = 4;
+  Coordinates end_point = 5;
+  int64 price = 6;
+  TripStatus status = 7;
+  google.protobuf.Timestamp started_at = 8;
+  google.protobuf.Timestamp finished_at = 9;
+  google.protobuf.Timestamp last_position_at = 10;
+}
+
+message Position {
+  int64 id = 1;
+  string trip_id = 2;
+  Coordinates coordinates = 3;
+  google.protobuf.Timestamp recorded_at = 4;
+}
+
+message CreateTripRequest {
+  string user_id = 1;
+  string driver_id = 2;
+  Coordinates start_point = 3;
+  Coordinates end_point = 4;
+  int64 price = 5;
+}
+
+message GetTripRequest {
+  string trip_id = 1;
+}
+
+message FinishTripRequest {
+  string trip_id = 1;
+}
+
+message AddPositionRequest {
+  string trip_id = 1;
+  Coordinates coordinates = 2;
+  google.protobuf.Timestamp recorded_at = 3;
+}
+
+message ListPositionsRequest {
+  string trip_id = 1;
+  google.protobuf.Timestamp from = 2;
+  google.protobuf.Timestamp to = 3;
+  int32 limit = 4;
+}
+
+message ListPositionsResponse {
+  repeated Position positions = 1;
+}
