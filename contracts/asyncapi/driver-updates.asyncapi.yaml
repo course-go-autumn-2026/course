@@ -1,0 +1,52 @@
+asyncapi: 2.6.0
+info:
+  title: TripGo Driver Updates
+  version: 1.0.0
+  description: Опциональный WebSocket-контракт лабораторной работы 5.
+servers:
+  local:
+    url: ws://localhost:8080
+    protocol: ws
+channels:
+  /ws/v1/drivers/{driverId}:
+    parameters:
+      driverId:
+        description: UUID водителя
+        schema:
+          type: string
+          format: uuid
+    subscribe:
+      message:
+        oneOf:
+          - $ref: '#/components/messages/TripCreated'
+          - $ref: '#/components/messages/TripCompleted'
+components:
+  messages:
+    TripCreated:
+      name: trip.created
+      payload:
+        type: object
+        required: [type, trip_id, occurred_at]
+        properties:
+          type:
+            const: trip.created
+          trip_id:
+            type: string
+            format: uuid
+          occurred_at:
+            type: string
+            format: date-time
+    TripCompleted:
+      name: trip.completed
+      payload:
+        type: object
+        required: [type, trip_id, occurred_at]
+        properties:
+          type:
+            const: trip.completed
+          trip_id:
+            type: string
+            format: uuid
+          occurred_at:
+            type: string
+            format: date-time
