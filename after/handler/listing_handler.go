@@ -92,7 +92,6 @@ func (h *ListingHandler) UpdatePrice(w http.ResponseWriter, r *http.Request) {
 	json.NewEncoder(w).Encode(listing)
 }
 
-// единая точка перевода доменных ошибок в HTTP-статусы
 func writeError(w http.ResponseWriter, err error) {
 	switch {
 	case errors.Is(err, domain.ErrInvalidPrice),

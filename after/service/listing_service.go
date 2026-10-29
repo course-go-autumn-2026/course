@@ -35,11 +35,7 @@ func (s *ListingService) Create(ctx context.Context, in CreateInput) (*domain.Li
 	}
 
 	// Антифрод (fail-open: ошибку игнорируем)
-
-	blocked, fraudErr := s.antifraud.Blocked(ctx, in.SellerID, in.Price)
-	if fraudErr != nil {
-		blocked = false
-	}
+	blocked, _ := s.antifraud.Blocked(ctx, in.SellerID, in.Price)
 
 	// Сохраняем
 	id, err := s.repo.Create(ctx, listing)
@@ -55,7 +51,7 @@ func (s *ListingService) Create(ctx context.Context, in CreateInput) (*domain.Li
 		return listing, nil
 	}
 
-	// Доверенный продавец минует модерацию
+	// Доверенный продавец минует модерацию (пока хардкод)
 	if in.SellerID == 2 {
 		listing.Approve()
 		_ = s.repo.Update(ctx, listing)
@@ -66,19 +62,16 @@ func (s *ListingService) Create(ctx context.Context, in CreateInput) (*domain.Li
 	approved, modErr := s.moderator.Check(ctx, id)
 	switch {
 	case errors.Is(modErr, context.DeadlineExceeded):
-		listing.MarkReview() // таймаут  review
+		listing.MarkReview() // таймаут -> review
 	case modErr != nil:
-		listing.MarkPending() // сетевая ошибка  pending
+		listing.MarkPending() // сетевая ошибка -> pending
 	case approved:
 		listing.Approve()
 	default:
 		listing.Reject()
 	}
 
-	if err := s.repo.Update(ctx, listing); err != nil {
-		return nil, err
-	}
-
+	_ = s.repo.Update(ctx, listing)
 	return listing, nil
 }
 

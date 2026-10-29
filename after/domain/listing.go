@@ -25,7 +25,7 @@ type Listing struct {
 	CreatedAt time.Time
 }
 
-// хардкод из ТЗ.
+// хардкод порогов из ТЗ
 func priceLimit(sellerID int64) float64 {
 	if sellerID == 2 {
 		return 50_000_000.0
@@ -33,7 +33,7 @@ func priceLimit(sellerID int64) float64 {
 	return 10_000_000.0
 }
 
-// конструктор с проверками 1-3
+// конструктор с проверками правил 1-3
 func NewListing(title string, price float64, photoURL string, sellerID int64) (*Listing, error) {
 	if price <= 0 {
 		return nil, ErrInvalidPrice

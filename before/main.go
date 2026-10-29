@@ -13,8 +13,7 @@ import (
 	"time"
 )
 
-// --- Хранилище в памяти вместо настоящей БД (для практики достаточно,
-// протокол обращения к нему такой же неудобный, как к *sql.DB). ---
+// --- Хранилище в памяти вместо настоящей БД () ---
 
 type storedListing struct {
 	ID        int64
@@ -38,8 +37,8 @@ var (
 	db     = map[int64]*storedListing{}
 	nextID int64
 
-	// Продавцы захардкожены прямо тут - для практики достаточно двух:
-	// обычного и доверенного. seller_id, которого нет в карте, считается
+	// Продавцы захардкожены прямо тут, сейчас их 2:
+	// обычный и доверенный. seller_id, которого нет в карте, считается
 	// обычным ("regular") по умолчанию.
 	sellers = map[int64]*storedSeller{
 		1: {ID: 1, Tier: "regular"},
@@ -73,7 +72,10 @@ func main() {
 	log.Fatal(http.ListenAndServe(":8080", mux))
 }
 
-// createListingHandler - POST /listings. Делает всё сразу: валидация,
+// createListingHandler - POST /listings.
+//
+//	валидация,
+//
 // поиск продавца, поход в антифрод, порог цены по его tier, запись в
 // "базу", поход в модерацию, решение по ответу.
 func createListingHandler(w http.ResponseWriter, r *http.Request) {
@@ -83,28 +85,28 @@ func createListingHandler(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 
-	// Бизнес-правило №1: нет цены - нет публикации.
+	// Бизнес-правило нет цены - нет публикации.
 	if req.Price <= 0 {
 		http.Error(w, "price must be positive", http.StatusBadRequest)
 		return
 	}
 
-	// Бизнес-правило №2: нет фото - нет публикации.
+	// Бизнес-правило  нет фото - нет публикации.
 	if strings.TrimSpace(req.PhotoURL) == "" {
 		http.Error(w, "photo is required", http.StatusBadRequest)
 		return
 	}
 
-	// Продавца смотрим прямо тут же, через ту же map, что и объявления.
 	// Неизвестный seller_id - не ошибка, просто "regular" по умолчанию.
 	seller, ok := sellers[req.SellerID]
 	if !ok {
 		seller = &storedSeller{ID: req.SellerID, Tier: "regular"}
 	}
 
-	// Бизнес-правило №3: порог подозрительной цены зависит от того, кто
-	// продавец - у доверенных продавцов лимит выше. Проверка цены не
-	// только про саму цену, но и про контекст продавца.
+	//  порог подозрительной цены зависит от того, кто
+	// продавец - у доверенных продавцов лимит выше.
+	// Проверка цены не
+	// только про саму цену, но и про контекст продавца
 	priceLimit := 10_000_000.0
 	if seller.Tier == "trusted" {
 		priceLimit = 50_000_000.0
