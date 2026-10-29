@@ -14,6 +14,10 @@ import (
 	"strconv"
 	"strings"
 	"time"
+
+	"github.com/course-go-autumn-2026/lecture6-architecture/after/domain"
+	"github.com/course-go-autumn-2026/lecture6-architecture/after/service"
+	"github.com/course-go-autumn-2026/lecture6-architecture/after/repository"
 )
 
 // --- Хранилище в памяти вместо настоящей БД (для практики достаточно,
@@ -25,14 +29,32 @@ type storedListing struct {
 	Price     float64
 	PhotoURL  string
 	SellerID  int64
-	Status    string // "pending" | "approved" | "rejected"
+	Status    string // "pending" | "approved" | "rejected" | "review"
 	CreatedAt time.Time
 }
 
+// storedSeller - продавец. Карта вместо настоящей таблицы sellers,
+// но влияет на бизнес-правила объявления точно так же, как влияла
+// бы запись из реальной БД.
+type storedSeller struct {
+	ID   int64
+	Tier string // "regular" | "trusted"
+}
+
 var (
-	db       = map[int64]*storedListing{}
-	nextID   int64
+	db     = map[int64]*storedListing{}
+	nextID int64
+
+	// Продавцы захардкожены прямо тут - для практики достаточно двух:
+	// обычного и доверенного. seller_id, которого нет в карте, считается
+	// обычным ("regular") по умолчанию.
+	sellers = map[int64]*storedSeller{
+		1: {ID: 1, Tier: "regular"},
+		2: {ID: 2, Tier: "trusted"},
+	}
+
 	moderationURL = "http://moderation.internal/check"
+	antifraudURL  = "http://antifraud.internal/check"
 )
 
 // --- Запросы/ответы ---
@@ -59,7 +81,8 @@ func main() {
 }
 
 // createListingHandler - POST /listings. Делает всё сразу: валидация,
-// запись в "базу", поход в модерацию, решение по ответу.
+// поиск продавца, поход в антифрод, порог цены по его tier, запись в
+// "базу", поход в модерацию, решение по ответу.
 func createListingHandler(w http.ResponseWriter, r *http.Request) {
 	var req createListingRequest
 	if err := json.NewDecoder(r.Body).Decode(&req); err != nil {
@@ -79,12 +102,41 @@ func createListingHandler(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 
-	// Бизнес-правило №3: цена не может быть выше 10 000 000 - считаем
-	// это подозрительным объявлением и сразу отклоняем.
-	if req.Price > 10_000_000 {
+	// Продавца смотрим прямо тут же, через ту же map, что и объявления.
+	// Неизвестный seller_id - не ошибка, просто "regular" по умолчанию.
+	seller, ok := sellers[req.SellerID]
+	if !ok {
+		seller = &storedSeller{ID: req.SellerID, Tier: "regular"}
+	}
+
+	// Бизнес-правило №3: порог подозрительной цены зависит от того, кто
+	// продавец - у доверенных продавцов лимит выше. Проверка цены не
+	// только про саму цену, но и про контекст продавца.
+	priceLimit := 10_000_000.0
+	if seller.Tier == "trusted" {
+		priceLimit = 50_000_000.0
+	}
+	if req.Price > priceLimit {
 		http.Error(w, "price looks suspicious", http.StatusBadRequest)
 		return
 	}
+
+	// Поход в антифрод - ДО модерации и ДО записи в базу. В отличие от
+	// модерации, недоступность антифрода не блокирует публикацию и не
+	// переводит объявление в особый статус - считаем проверку пройденной
+	// и просто идём дальше (fail-open, а не fail-safe, как у модерации).
+	afReq, _ := http.NewRequestWithContext(r.Context(), http.MethodPost,
+		antifraudURL, strings.NewReader(fmt.Sprintf(`{"seller_id":%d,"price":%f}`, req.SellerID, req.Price)))
+	afReq.Header.Set("Content-Type", "application/json")
+	blocked := false
+	afResp, afErr := http.DefaultClient.Do(afReq)
+	if afErr == nil {
+		defer afResp.Body.Close()
+		if afResp.StatusCode == http.StatusForbidden {
+			blocked = true
+		}
+	}
+	// afErr != nil (антифрод недоступен) - blocked остаётся false, едем дальше.
 
 	nextID++
 	id := nextID
@@ -99,22 +151,54 @@ func createListingHandler(w http.ResponseWriter, r *http.Request) {
 	}
 	db[id] = listing
 
-	// Поход во внешний сервис модерации прямо из хендлера.
-	modReq, _ := http.NewRequestWithContext(r.Context(), http.MethodPost,
+	// Антифрод заблокировал - сразу rejected, в модерацию не идём.
+	if blocked {
+		listing.Status = "rejected"
+		w.WriteHeader(http.StatusCreated)
+		json.NewEncoder(w).Encode(map[string]any{"id": id, "status": listing.Status})
+		return
+	}
+
+	// Доверенный продавец минует модерацию - сразу approved, запрос в
+	// moderationURL вообще не делаем.
+	if seller.Tier == "trusted" {
+		listing.Status = "approved"
+		w.WriteHeader(http.StatusCreated)
+		json.NewEncoder(w).Encode(map[string]any{"id": id, "status": listing.Status})
+		return
+	}
+
+	// Поход во внешний сервис модерации прямо из хендлера. Если тело
+	// запроса содержит "slow" - fake-сервис в тестах держит соединение
+	// дольше контекстного таймаута, это и есть эмуляция "не ответила
+	// вовремя" для статуса review.
+	modCtx, cancel := context.WithTimeout(r.Context(), 2*time.Second)
+	defer cancel()
+	modReq, _ := http.NewRequestWithContext(modCtx, http.MethodPost,
 		moderationURL, strings.NewReader(fmt.Sprintf(`{"listing_id":%d}`, id)))
 	modReq.Header.Set("Content-Type", "application/json")
 	resp, err := http.DefaultClient.Do(modReq)
 	if err != nil {
-		// Модерация недоступна - но объявление уже создано.
-		// Решаем тут же, по месту: отвечаем 201 pending.
+		// Модерация недоступна ИЛИ не ответила за отведённое время -
+		// но объявление уже создано. Таймаут контекста (context.DeadlineExceeded)
+		// и обычная сетевая ошибка размазаны тут в одну и ту же ветку:
+		// это и есть статус "review", а не "pending", если причина - именно
+		// таймаут. Различать их по ошибке в этом коде никто не пытается.
+		if errors.Is(err, context.DeadlineExceeded) {
+			listing.Status = "review"
+		} else {
+			listing.Status = "pending"
+		}
 		w.WriteHeader(http.StatusCreated)
-		json.NewEncoder(w).Encode(map[string]any{"id": id, "status": "pending"})
+		json.NewEncoder(w).Encode(map[string]any{"id": id, "status": listing.Status})
 		return
 	}
 	defer resp.Body.Close()
 
 	if resp.StatusCode == http.StatusOK {
 		listing.Status = "approved"
+	} else {
+		listing.Status = "rejected"
 	}
 
 	w.WriteHeader(http.StatusCreated)
@@ -142,7 +226,9 @@ func getListingHandler(w http.ResponseWriter, r *http.Request) {
 
 // updatePriceHandler - PATCH /listings/{id}/price. Меняет цену, но
 // только если объявление ещё не отклонено - бизнес-правило №4, зашитое
-// прямо тут же, рядом с разбором запроса и ответом клиенту.
+// прямо тут же, рядом с разбором запроса и ответом клиенту. Дальше -
+// правило №5: смена цены может откатить approved обратно в pending,
+// если новая цена выглядит подозрительной для этого продавца.
 func updatePriceHandler(w http.ResponseWriter, r *http.Request) {
 	idStr := r.PathValue("id")
 	id, err := strconv.ParseInt(idStr, 10, 64)
@@ -175,6 +261,25 @@ func updatePriceHandler(w http.ResponseWriter, r *http.Request) {
 	}
 
 	listing.Price = req.Price
+
+	// Бизнес-правило №5: если объявление уже approved, а новая цена
+	// подозрительна для этого продавца - нужна повторная модерация,
+	// статус откатывается в pending. Для review/pending ничего особого
+	// не происходит - цена меняется, статус остаётся как был.
+	if listing.Status == "approved" {
+		seller, ok := sellers[listing.SellerID]
+		if !ok {
+			seller = &storedSeller{ID: listing.SellerID, Tier: "regular"}
+		}
+		priceLimit := 10_000_000.0
+		if seller.Tier == "trusted" {
+			priceLimit = 50_000_000.0
+		}
+		if req.Price > priceLimit {
+			listing.Status = "pending"
+		}
+	}
+
 	w.Header().Set("Content-Type", "application/json")
 	json.NewEncoder(w).Encode(listing)
 }

@@ -13,7 +13,7 @@
 | 4 | Observability и мониторинг | [Лекция](04-observability/lecture/) | [Практика](04-observability/practice/) | [работа 2](../homework/tasks/02-architecture-and-observability/) |
 | 5 | ООП и принципы программирования | [Лекция](05-oop/lecture/) | [Практика](05-oop/practice/) | [работа 2](../homework/tasks/02-architecture-and-observability/) |
 | 6 | Архитектура сервиса | [Лекция](06-service-architecture/lecture/) | [Практика](06-service-architecture/practice/) | [работа 2](../homework/tasks/02-architecture-and-observability/) |
-| 7 | Паттерны программирования | [Лекция](07-programming-patterns/lecture/) | [Практика](07-programming-patterns/practice/) | [работа 3](../homework/tasks/03-positions-and-worker-pool/) |
+| 7 | Паттерны программирования | [Лекция](07-programming-patterns/lecture/) | [Практика: Пак 1 и Пак 2](07-programming-patterns/practice/) | [работа 3](../homework/tasks/03-positions-and-worker-pool/) |
 | 8 | Конкурентность | [Лекция](08-concurrency/lecture/) | [Практика](08-concurrency/practice/) | [работа 3](../homework/tasks/03-positions-and-worker-pool/) |
 | 9 | Синхронные запросы | [Лекция](09-synchronous-requests/lecture/) | [Практика](09-synchronous-requests/practice/) | [работа 4](../homework/tasks/04-grpc-and-events/) |
 | 10 | Асинхронное взаимодействие | [Лекция](10-asynchronous-interaction/lecture/) | [Практика](10-asynchronous-interaction/practice/) | [работа 4](../homework/tasks/04-grpc-and-events/) |
