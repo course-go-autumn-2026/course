@@ -1,0 +1,14 @@
+package: api
+output: api/trip_service.gen.go
+
+generate:
+  models: true
+  chi-server: true
+
+output-options:
+  include-operation-ids:
+    - createTrip
+    - getTrip
+    - finishTrip
+    - health
+    - ready
