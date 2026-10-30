@@ -20,16 +20,6 @@ import (
 // --- Хранилище в памяти вместо настоящей БД (для практики достаточно,
 // протокол обращения к нему такой же неудобный, как к *sql.DB). ---
 
-type storedBooking struct {
-	ID         int64
-	RoomID     int64
-	EmployeeID int64
-	StartAt    time.Time
-	EndAt      time.Time
-	Status     string // "pending_confirmation" | "confirmed" | "cancelled" | "rescheduling"
-	CreatedAt  time.Time
-}
-
 // storedEmployee - сотрудник. Карта вместо настоящей таблицы employees,
 // но влияет на бизнес-правила бронирования точно так же, как влияла
 // бы запись из реальной БД.
