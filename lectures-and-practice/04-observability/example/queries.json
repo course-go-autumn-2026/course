@@ -1,7 +1,0 @@
-{
-  "throughput": "sum(rate(orders_attempts_total{job=\"otel-collector\",exported_job=\"tripgo/order-service\"}[5m]))",
-  "success_percent": "100 * sum(rate(orders_attempts_total{job=\"otel-collector\",exported_job=\"tripgo/order-service\",outcome=\"success\"}[5m])) / (sum(rate(orders_attempts_total{job=\"otel-collector\",exported_job=\"tripgo/order-service\"}[5m])) > 0)",
-  "p95_seconds": "histogram_quantile(0.95, sum by (le) (rate(orders_duration_seconds_bucket{job=\"otel-collector\",exported_job=\"tripgo/order-service\"}[5m])))",
-  "p99_seconds": "histogram_quantile(0.99, sum by (le) (rate(orders_duration_seconds_bucket{job=\"otel-collector\",exported_job=\"tripgo/order-service\"}[5m])))",
-  "fast_success_percent": "100 * (sum(rate(orders_duration_seconds_bucket{job=\"otel-collector\",exported_job=\"tripgo/order-service\",outcome=\"success\",le=\"0.8\"}[5m])) or (0 * sum(rate(orders_duration_seconds_count{job=\"otel-collector\",exported_job=\"tripgo/order-service\"}[5m])))) / (sum(rate(orders_duration_seconds_count{job=\"otel-collector\",exported_job=\"tripgo/order-service\"}[5m])) > 0)"
-}

@@ -1,0 +1,9 @@
+/bin/
+*.exe
+*.test
+
+.env
+.idea/
+.vscode/
+*.log
+*.disabled
