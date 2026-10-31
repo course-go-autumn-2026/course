@@ -29,3 +29,8 @@
 | Какие требования действуют во всех работах | [`homework/docs/conventions.md`](homework/docs/conventions.md) |
 | Как поднять окружение и откуда брать адреса | [`homework/docs/environment.md`](homework/docs/environment.md) |
 | Какие ручки, события и таблицы зафиксированы | [`homework/contracts/`](homework/contracts/) |
+
+## Первая лабораторная
+
+Окружение и генерация API запускаются из корня репозитория.
+Инструкция: [DEVELOPMENT.md](DEVELOPMENT.md).
