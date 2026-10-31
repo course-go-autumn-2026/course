@@ -14,6 +14,10 @@ import (
 	"strconv"
 	"strings"
 	"time"
+
+	"github.com/course-go-autumn-2026/lecture6-architecture/after/domain"
+	"github.com/course-go-autumn-2026/lecture6-architecture/after/service"
+	"github.com/course-go-autumn-2026/lecture6-architecture/after/repository"
 )
 
 // --- Хранилище в памяти вместо настоящей БД (для практики достаточно,
