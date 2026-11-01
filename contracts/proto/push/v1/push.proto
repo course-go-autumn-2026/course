@@ -1,0 +1,34 @@
+syntax = "proto3";
+
+package tripgo.push.v1;
+
+option go_package = "github.com/course-go-autumn-2026/homework/gen/push/v1;pushv1";
+
+import "google/protobuf/timestamp.proto";
+
+service PushService {
+  // Принимает команду на отправку push-уведомления.
+  // Реальная интеграция с APNs/FCM в учебный scope не входит.
+  rpc SendPush(SendPushRequest) returns (SendPushResponse);
+}
+
+enum PushKind {
+  PUSH_KIND_UNSPECIFIED = 0;
+  PUSH_KIND_REQUEST_POSITION = 1;
+  PUSH_KIND_TRIP_CREATED = 2;
+  PUSH_KIND_TRIP_COMPLETED = 3;
+}
+
+message SendPushRequest {
+  string request_id = 1;
+  string recipient_id = 2;
+  PushKind kind = 3;
+  string title = 4;
+  string body = 5;
+  map<string, string> data = 6;
+}
+
+message SendPushResponse {
+  string message_id = 1;
+  google.protobuf.Timestamp accepted_at = 2;
+}
