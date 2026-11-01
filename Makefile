@@ -2,6 +2,7 @@
 
 generate:
 	go tool oapi-codegen -config api/oapi-codegen.yaml contracts/openapi/trip-service.openapi.yaml
+	go generate ./internal/...
 
 migrate:
 	@set -a; . ./.env; set +a; go tool goose -dir migrations postgres "$$DATABASE_URL" up

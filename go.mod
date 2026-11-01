@@ -5,6 +5,7 @@ go 1.25.7
 tool (
 	github.com/oapi-codegen/oapi-codegen/v2/cmd/oapi-codegen
 	github.com/pressly/goose/v3/cmd/goose
+	go.uber.org/mock/mockgen
 )
 
 require (
@@ -13,6 +14,7 @@ require (
 	github.com/google/uuid v1.6.0
 	github.com/jackc/pgx/v5 v5.10.0
 	github.com/oapi-codegen/runtime v1.7.0
+	go.uber.org/mock v0.6.0
 )
 
 require (

@@ -2,8 +2,35 @@
 
 Сервис создаёт поездки, возвращает их по ID и завершает. HTTP API задан в
 [`contracts/openapi/trip-service.openapi.yaml`](contracts/openapi/trip-service.openapi.yaml),
-данные хранятся в PostgreSQL. Материалы курса сохранены в [`homework/`](homework/)
-и [`lectures-and-practice/`](lectures-and-practice/).
+данные хранятся в PostgreSQL. Текущая архитектура описана в
+[`docs/architecture.md`](docs/architecture.md). Материалы курса сохранены в
+[`docs/course/homework/`](docs/course/homework/) и
+[`docs/course/lectures-and-practice/`](docs/course/lectures-and-practice/).
+
+## Структура репозитория
+
+```text
+cmd/                  точка входа сервиса
+internal/             реализация сервиса и тесты
+migrations/           SQL-миграции goose
+api/                  конфигурация генерации HTTP API
+contracts/            контракты, используемые сервисом
+docs/
+  architecture.md     описание текущей архитектуры
+  course/
+    homework/         задания, требования и справочные материалы курса
+    lectures-and-practice/  лекции и практические задания
+go.mod, go.sum        модуль Go и зависимости
+Makefile              запуск, миграции, генерация и тесты
+Dockerfile            сборка контейнера сервиса
+environment.toml      состав локального окружения
+.env.example          пример конфигурации
+README.md             описание и инструкция запуска
+```
+
+Все лабораторные последовательно развивают один сервис. Копия контрактов в
+`docs/course/homework/contracts/` относится к материалам курса; генерация кода
+сервиса использует корневой `contracts/`.
 
 ## Запуск
 
@@ -61,11 +88,15 @@ curl -i localhost:8080/ready
 
 ```bash
 go build ./...
-make generate       # заново сгенерировать API-код из OpenAPI
+make generate       # сгенерировать API-код из OpenAPI и моки
 make migrate        # применить миграции
 make migrate-down   # откатить одну миграцию; повторить для второй
 make test           # go test -race ./...
 ```
+
+Доменные и HTTP unit-тесты запускаются без БД. HTTP-тесты используют `httptest`
+и сгенерированные `gomock`-моки зависимостей. `make generate` обновляет моки через
+`go:generate`; сгенерированные `mocks_test.go` хранятся рядом с потребителями.
 
 Интеграционные тесты используют отдельную переменную `TEST_DATABASE_URL`. Без неё
 они пропускаются; для полного прогона подготовьте **отдельную тестовую БД**,
@@ -74,7 +105,7 @@ make test           # go test -race ./...
 `make generate` должна оставлять `internal/generated/api.gen.go` без изменений.
 
 Для ручной проверки отправьте `POST /api/v1/trips` с телом из
-[условия ЛР1](homework/tasks/01-http-and-postgres/README.md), затем запросите
+[условия ЛР1](docs/course/homework/tasks/01-http-and-postgres/README.md), затем запросите
 `GET /api/v1/trips/{tripId}` и `POST /api/v1/trips/{tripId}/finish`.
 Повторное создание поездки для занятого водителя возвращает `409 driver_busy`,
 повторное завершение — `409 trip_completed`.

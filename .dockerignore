@@ -4,8 +4,7 @@
 .tripgo
 .idea
 **/*_test.go
-homework
-lectures-and-practice
+docs
 contracts
 api
 migrations
