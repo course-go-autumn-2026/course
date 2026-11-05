@@ -40,20 +40,8 @@ func NewTrip(
 	if id == uuid.Nil {
 		return Trip{}, &ValidationError{Field: "id", Reason: "must not be zero"}
 	}
-	if userID == uuid.Nil {
-		return Trip{}, &ValidationError{Field: "user_id", Reason: "must not be zero"}
-	}
-	if driverID == uuid.Nil {
-		return Trip{}, &ValidationError{Field: "driver_id", Reason: "must not be zero"}
-	}
-	if err := validatePoint(startPoint, "start_point"); err != nil {
+	if err := ValidateCreate(userID, driverID, startPoint, endPoint, price); err != nil {
 		return Trip{}, err
-	}
-	if err := validatePoint(endPoint, "end_point"); err != nil {
-		return Trip{}, err
-	}
-	if price < 0 {
-		return Trip{}, &ValidationError{Field: "price", Reason: "must not be negative"}
 	}
 	if startedAt.IsZero() {
 		return Trip{}, &ValidationError{Field: "started_at", Reason: "must not be zero"}
@@ -70,6 +58,34 @@ func NewTrip(
 		StartedAt:  startedAt,
 		FinishedAt: nil,
 	}, nil
+}
+
+func ValidateCreate(userID, driverID uuid.UUID, startPoint, endPoint Point, price int64) error {
+	if userID == uuid.Nil {
+		return &ValidationError{Field: "user_id", Reason: "must not be zero"}
+	}
+	if driverID == uuid.Nil {
+		return &ValidationError{Field: "driver_id", Reason: "must not be zero"}
+	}
+	if err := validatePoint(startPoint, "start_point"); err != nil {
+		return err
+	}
+	if err := validatePoint(endPoint, "end_point"); err != nil {
+		return err
+	}
+	if price < 0 {
+		return &ValidationError{Field: "price", Reason: "must not be negative"}
+	}
+	return nil
+}
+
+func (t *Trip) Finish(at time.Time) error {
+	if t.Status != StatusActive {
+		return ErrCompleted
+	}
+	t.Status = StatusCompleted
+	t.FinishedAt = &at
+	return nil
 }
 
 func validatePoint(point Point, field string) error {

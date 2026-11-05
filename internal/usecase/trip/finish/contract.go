@@ -9,7 +9,8 @@ import (
 )
 
 type tripRepository interface {
-	Finish(ctx context.Context, id uuid.UUID, finishedAt time.Time) (trip.Trip, error)
+	GetForUpdate(ctx context.Context, id uuid.UUID) (trip.Trip, error)
+	SaveCompletion(ctx context.Context, trip trip.Trip) error
 	InsertHistory(ctx context.Context, tripID uuid.UUID, fromStatus *string, toStatus, reason string, changedAt time.Time) error
 }
 

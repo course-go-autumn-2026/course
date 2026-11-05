@@ -161,6 +161,7 @@ func TestTripHTTPContract(t *testing.T) {
 		t.Fatalf("idempotency responses: first %d %s, second %d %s", first.Code, first.Body.String(), second.Code, second.Body.String())
 	}
 	assertProblem(requestWithKey(strings.Replace(keyedBody, `"price":1450`, `"price":1451`, 1), key), http.StatusConflict, "idempotency_conflict")
+	assertProblem(requestWithKey(strings.Replace(keyedBody, `"price":1450`, `"price":-1`, 1), key), http.StatusBadRequest, "invalid_request")
 	assertProblem(requestWithKey(keyedBody, "invalid"), http.StatusBadRequest, "invalid_request")
 	closedPool, err := pgxpool.New(ctx, databaseURL)
 	if err != nil {

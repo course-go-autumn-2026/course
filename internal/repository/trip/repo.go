@@ -140,11 +140,22 @@ func (r *Repository) InsertIdempotency(ctx context.Context, key uuid.UUID, hash 
 }
 
 func (r *Repository) Get(ctx context.Context, id uuid.UUID) (tripdomain.Trip, error) {
-	query, args, err := squirrel.Select(tripColumns...).
+	return r.get(ctx, id, false)
+}
+
+func (r *Repository) GetForUpdate(ctx context.Context, id uuid.UUID) (tripdomain.Trip, error) {
+	return r.get(ctx, id, true)
+}
+
+func (r *Repository) get(ctx context.Context, id uuid.UUID, forUpdate bool) (tripdomain.Trip, error) {
+	builder := squirrel.Select(tripColumns...).
 		From("trips").
 		Where(squirrel.Eq{"id": id}).
-		PlaceholderFormat(squirrel.Dollar).
-		ToSql()
+		PlaceholderFormat(squirrel.Dollar)
+	if forUpdate {
+		builder = builder.Suffix("FOR UPDATE")
+	}
+	query, args, err := builder.ToSql()
 	if err != nil {
 		return tripdomain.Trip{}, fmt.Errorf("build get trip: %w", err)
 	}
@@ -160,33 +171,25 @@ func (r *Repository) Get(ctx context.Context, id uuid.UUID) (tripdomain.Trip, er
 	return trip, nil
 }
 
-func (r *Repository) Finish(ctx context.Context, id uuid.UUID, finishedAt time.Time) (tripdomain.Trip, error) {
+func (r *Repository) SaveCompletion(ctx context.Context, trip tripdomain.Trip) error {
 	query, args, err := squirrel.Update("trips").
-		Set("status", tripdomain.StatusCompleted).
-		Set("finished_at", finishedAt).
-		Set("updated_at", finishedAt).
-		Where(squirrel.Eq{"id": id, "status": tripdomain.StatusActive}).
-		Suffix("RETURNING id, user_id, driver_id, start_latitude, start_longitude, end_latitude, end_longitude, price, status, started_at, finished_at").
+		Set("status", trip.Status).
+		Set("finished_at", trip.FinishedAt).
+		Set("updated_at", trip.FinishedAt).
+		Where(squirrel.Eq{"id": trip.ID, "status": tripdomain.StatusActive}).
 		PlaceholderFormat(squirrel.Dollar).
 		ToSql()
 	if err != nil {
-		return tripdomain.Trip{}, fmt.Errorf("build finish trip: %w", err)
+		return fmt.Errorf("build save trip completion: %w", err)
 	}
 	queryCtx, cancel := context.WithTimeout(ctx, r.queryTimeout)
 	defer cancel()
-	trip, err := scanTrip(r.tx.Executor(queryCtx).QueryRow(queryCtx, query, args...))
-	if err == nil {
-		return trip, nil
-	}
-	if !errors.Is(err, pgx.ErrNoRows) {
-		return tripdomain.Trip{}, fmt.Errorf("finish trip: %w", err)
-	}
-	trip, err = r.Get(ctx, id)
+	result, err := r.tx.Executor(queryCtx).Exec(queryCtx, query, args...)
 	if err != nil {
-		return tripdomain.Trip{}, err
+		return fmt.Errorf("save trip completion: %w", err)
 	}
-	if trip.Status == tripdomain.StatusCompleted {
-		return tripdomain.Trip{}, tripdomain.ErrCompleted
+	if result.RowsAffected() != 1 {
+		return fmt.Errorf("save trip completion: expected one active row for trip %s", trip.ID)
 	}
-	return tripdomain.Trip{}, fmt.Errorf("trip %s is still active after guarded update", id)
+	return nil
 }

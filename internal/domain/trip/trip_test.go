@@ -77,3 +77,34 @@ func TestNewTripInvalidInput(t *testing.T) {
 		})
 	}
 }
+
+func TestFinish(t *testing.T) {
+	at := time.Date(2026, time.November, 1, 13, 0, 0, 0, time.UTC)
+	previousFinish := at.Add(-time.Hour)
+	cases := []struct {
+		name    string
+		initial trip.Trip
+		wantErr error
+	}{
+		{"active", trip.Trip{Status: trip.StatusActive}, nil},
+		{"completed", trip.Trip{Status: trip.StatusCompleted, FinishedAt: &previousFinish}, trip.ErrCompleted},
+		{"unknown status", trip.Trip{}, trip.ErrCompleted},
+	}
+	for _, tc := range cases {
+		t.Run(tc.name, func(t *testing.T) {
+			got := tc.initial
+			if err := got.Finish(at); !errors.Is(err, tc.wantErr) {
+				t.Fatalf("Finish: got %v, want %v", err, tc.wantErr)
+			}
+			if tc.wantErr != nil {
+				if got != tc.initial {
+					t.Fatalf("rejected transition changed trip: %+v", got)
+				}
+				return
+			}
+			if got.Status != trip.StatusCompleted || got.FinishedAt == nil || !got.FinishedAt.Equal(at) {
+				t.Fatalf("unexpected completed trip: %+v", got)
+			}
+		})
+	}
+}

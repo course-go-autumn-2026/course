@@ -37,6 +37,7 @@ func TestHandler(t *testing.T) {
 		{"replayed", true, nil, 200, ""},
 		{"busy", false, trip.ErrDriverBusy, 409, "driver_busy"},
 		{"conflict", false, trip.ErrIdempotencyConflict, 409, "idempotency_conflict"},
+		{"domain validation", false, &trip.ValidationError{Field: "price", Reason: "must not be negative"}, 400, "invalid_request"},
 		{"internal", false, errors.New("private database details"), 500, "internal_error"},
 	}
 	for _, tc := range cases {
@@ -80,10 +81,7 @@ func TestHandlerRejectsInvalidRequest(t *testing.T) {
 		{"malformed JSON", `{`, "application/json"},
 		{"missing fields", `{}`, "application/json"},
 		{"null field", strings.Replace(valid, `"price":0`, `"price":null`, 1), "application/json"},
-		{"negative price", strings.Replace(valid, `"price":0`, `"price":-1`, 1), "application/json"},
-		{"latitude", strings.Replace(valid, `"latitude":0`, `"latitude":91`, 1), "application/json"},
 		{"unknown field", strings.Replace(valid, `"price":0`, `"price":0,"extra":true`, 1), "application/json"},
-		{"zero UUID", strings.Replace(valid, user.String(), uuid.Nil.String(), 1), "application/json"},
 		{"invalid UUID", strings.Replace(valid, user.String(), "bad", 1), "application/json"},
 		{"multiple objects", valid + `{}`, "application/json"},
 		{"body too large", strings.Repeat(" ", (1<<20)+1), "application/json"},

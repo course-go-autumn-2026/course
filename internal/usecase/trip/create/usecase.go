@@ -31,6 +31,10 @@ func (s *Usecase) Create(ctx context.Context, input model.CreateTripInput) (trip
 }
 
 func (s *Usecase) CreateWithKey(ctx context.Context, input model.CreateTripInput, key *uuid.UUID) (tripdomain.Trip, bool, error) {
+	if err := tripdomain.ValidateCreate(input.UserID, input.DriverID, input.StartPoint, input.EndPoint, input.Price); err != nil {
+		return tripdomain.Trip{}, false, err
+	}
+
 	var requestHash [32]byte
 	if key != nil {
 		encoded, err := json.Marshal(input)
@@ -84,15 +88,14 @@ func (s *Usecase) createInTx(ctx context.Context, input model.CreateTripInput) (
 		return tripdomain.Trip{}, fmt.Errorf("generate trip ID: %w", err)
 	}
 	now := time.Now().UTC().Truncate(time.Microsecond)
-	trip := tripdomain.Trip{
-		ID: id, UserID: input.UserID, DriverID: input.DriverID,
-		StartPoint: input.StartPoint, EndPoint: input.EndPoint, Price: input.Price,
-		Status: tripdomain.StatusActive, StartedAt: now,
+	trip, err := tripdomain.NewTrip(id, input.UserID, input.DriverID, input.StartPoint, input.EndPoint, input.Price, now)
+	if err != nil {
+		return tripdomain.Trip{}, err
 	}
 	if err := s.repo.Insert(ctx, trip); err != nil {
 		return tripdomain.Trip{}, err
 	}
-	if err := s.repo.InsertHistory(ctx, trip.ID, nil, tripdomain.StatusActive, "Trip created", now); err != nil {
+	if err := s.repo.InsertHistory(ctx, trip.ID, nil, trip.Status, "Trip created", trip.StartedAt); err != nil {
 		return tripdomain.Trip{}, err
 	}
 	return trip, nil

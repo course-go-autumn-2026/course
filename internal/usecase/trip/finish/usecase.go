@@ -23,12 +23,18 @@ func (s *Usecase) Finish(ctx context.Context, id uuid.UUID) (tripdomain.Trip, er
 	var trip tripdomain.Trip
 	if err := s.tx.Do(ctx, func(txCtx context.Context) error {
 		var err error
-		trip, err = s.repo.Finish(txCtx, id, now)
+		trip, err = s.repo.GetForUpdate(txCtx, id)
 		if err != nil {
 			return err
 		}
-		fromStatus := tripdomain.StatusActive
-		return s.repo.InsertHistory(txCtx, id, &fromStatus, tripdomain.StatusCompleted, "Trip finished", now)
+		fromStatus := trip.Status
+		if err := trip.Finish(now); err != nil {
+			return err
+		}
+		if err := s.repo.SaveCompletion(txCtx, trip); err != nil {
+			return err
+		}
+		return s.repo.InsertHistory(txCtx, id, &fromStatus, trip.Status, "Trip finished", now)
 	}); err != nil {
 		return tripdomain.Trip{}, fmt.Errorf("finish trip: %w", err)
 	}

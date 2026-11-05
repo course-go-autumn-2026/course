@@ -10,7 +10,6 @@ import (
 	"net/http"
 
 	"github.com/DaleCoopTP/grishin_lab1/internal/generated"
-	"github.com/google/uuid"
 )
 
 const maxBodyBytes = 1 << 20
@@ -42,10 +41,6 @@ func decodeCreateRequest(w http.ResponseWriter, r *http.Request, request *api.Tr
 	if err := decoder.Decode(&extra); !errors.Is(err, io.EOF) {
 		return errors.New("request body must contain one JSON object")
 	}
-	if request.UserId == uuid.Nil || request.DriverId == uuid.Nil || request.Price < 0 ||
-		!validPoint(request.StartPoint) || !validPoint(request.EndPoint) {
-		return errors.New("request values are outside the allowed range")
-	}
 	return nil
 }
 
@@ -61,8 +56,4 @@ func requiredFields(body []byte, names ...string) (map[string]json.RawMessage, e
 		}
 	}
 	return fields, nil
-}
-
-func validPoint(point api.Coordinates) bool {
-	return point.Latitude >= -90 && point.Latitude <= 90 && point.Longitude >= -180 && point.Longitude <= 180
 }
