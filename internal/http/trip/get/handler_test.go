@@ -11,12 +11,13 @@ import (
 	"testing"
 	"time"
 
+	"github.com/google/uuid"
+	"go.uber.org/mock/gomock"
+
 	"github.com/DaleCoopTP/grishin_lab1/internal/domain/trip"
 	"github.com/DaleCoopTP/grishin_lab1/internal/generated"
 	"github.com/DaleCoopTP/grishin_lab1/internal/http/response"
 	"github.com/DaleCoopTP/grishin_lab1/internal/http/trip/get"
-	"github.com/google/uuid"
-	"go.uber.org/mock/gomock"
 )
 
 func TestHandler(t *testing.T) {

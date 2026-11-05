@@ -1,8 +1,9 @@
 package model
 
 import (
-	"github.com/DaleCoopTP/grishin_lab1/internal/domain/trip"
 	"github.com/google/uuid"
+
+	"github.com/DaleCoopTP/grishin_lab1/internal/domain/trip"
 )
 
 type CreateTripInput struct {

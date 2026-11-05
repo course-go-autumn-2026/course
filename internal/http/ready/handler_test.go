@@ -10,9 +10,10 @@ import (
 	"testing"
 	"time"
 
+	"go.uber.org/mock/gomock"
+
 	"github.com/DaleCoopTP/grishin_lab1/internal/http/ready"
 	"github.com/DaleCoopTP/grishin_lab1/internal/http/response"
-	"go.uber.org/mock/gomock"
 )
 
 func TestReadiness(t *testing.T) {

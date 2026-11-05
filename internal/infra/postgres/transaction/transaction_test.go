@@ -1,3 +1,5 @@
+//go:build integration
+
 package transaction
 
 import (
@@ -16,7 +18,7 @@ import (
 func TestManagerTransactionLifecycle(t *testing.T) {
 	databaseURL := os.Getenv("TEST_DATABASE_URL")
 	if databaseURL == "" {
-		t.Skip("TEST_DATABASE_URL is not set")
+		t.Fatal("TEST_DATABASE_URL is not set")
 	}
 
 	ctx, cancel := context.WithTimeout(context.Background(), 10*time.Second)

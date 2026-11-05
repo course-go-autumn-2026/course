@@ -15,22 +15,27 @@ import (
 )
 
 func main() {
+	os.Exit(exitCode())
+}
+
+func exitCode() int {
 	cfg, err := config.Load()
 	if err != nil {
 		fmt.Fprintln(os.Stderr, "configuration:", err)
-		os.Exit(1)
+		return 1
 	}
 	ctx, stop := signal.NotifyContext(context.Background(), os.Interrupt, syscall.SIGTERM)
 	defer stop()
 	app, err := container.New(ctx, cfg)
 	if err != nil {
 		fmt.Fprintln(os.Stderr, "initialize application:", err)
-		os.Exit(1)
+		return 1
 	}
 	if err := run(ctx, cfg, app); err != nil {
 		app.Logger.Error("service stopped with error", "error", err)
-		os.Exit(1)
+		return 1
 	}
+	return 0
 }
 
 func run(ctx context.Context, cfg config.Config, app *container.Container) error {

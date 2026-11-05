@@ -1,9 +1,10 @@
 package health
 
 import (
+	"net/http"
+
 	"github.com/DaleCoopTP/grishin_lab1/internal/generated"
 	"github.com/DaleCoopTP/grishin_lab1/internal/http/response"
-	"net/http"
 )
 
 type Handler struct {

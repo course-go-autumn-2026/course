@@ -3,10 +3,11 @@ package httptransport
 import (
 	"net/http"
 
+	"github.com/go-chi/chi/v5"
+
 	"github.com/DaleCoopTP/grishin_lab1/internal/generated"
 	"github.com/DaleCoopTP/grishin_lab1/internal/http/domainerror"
 	"github.com/DaleCoopTP/grishin_lab1/internal/http/response"
-	"github.com/go-chi/chi/v5"
 )
 
 type serverHandlers struct {
@@ -19,8 +20,8 @@ type serverHandlers struct {
 
 var _ api.ServerInterface = (*serverHandlers)(nil)
 
-func NewRouter(create createHandler, get tripHandler, finish tripHandler,
-	health http.Handler, ready http.Handler, response *response.Writer,
+func NewRouter(create createHandler, get, finish tripHandler,
+	health, ready http.Handler, response *response.Writer,
 ) http.Handler {
 	handlers := &serverHandlers{create: create, get: get, finish: finish, health: health, ready: ready}
 	return api.HandlerWithOptions(handlers, api.ChiServerOptions{

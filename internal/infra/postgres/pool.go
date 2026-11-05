@@ -4,8 +4,9 @@ import (
 	"context"
 	"fmt"
 
-	"github.com/DaleCoopTP/grishin_lab1/internal/config"
 	"github.com/jackc/pgx/v5/pgxpool"
+
+	"github.com/DaleCoopTP/grishin_lab1/internal/config"
 )
 
 func Open(ctx context.Context, cfg config.Config) (*pgxpool.Pool, error) {

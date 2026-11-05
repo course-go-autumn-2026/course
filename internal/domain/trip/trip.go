@@ -9,6 +9,7 @@ import (
 const (
 	StatusActive    = "active"
 	StatusCompleted = "completed"
+	reasonZeroValue = "must not be zero"
 )
 
 type Point struct {
@@ -38,13 +39,13 @@ func NewTrip(
 	startedAt time.Time,
 ) (Trip, error) {
 	if id == uuid.Nil {
-		return Trip{}, &ValidationError{Field: "id", Reason: "must not be zero"}
+		return Trip{}, &ValidationError{Field: "id", Reason: reasonZeroValue}
 	}
 	if err := ValidateCreate(userID, driverID, startPoint, endPoint, price); err != nil {
 		return Trip{}, err
 	}
 	if startedAt.IsZero() {
-		return Trip{}, &ValidationError{Field: "started_at", Reason: "must not be zero"}
+		return Trip{}, &ValidationError{Field: "started_at", Reason: reasonZeroValue}
 	}
 
 	return Trip{
@@ -62,10 +63,10 @@ func NewTrip(
 
 func ValidateCreate(userID, driverID uuid.UUID, startPoint, endPoint Point, price int64) error {
 	if userID == uuid.Nil {
-		return &ValidationError{Field: "user_id", Reason: "must not be zero"}
+		return &ValidationError{Field: "user_id", Reason: reasonZeroValue}
 	}
 	if driverID == uuid.Nil {
-		return &ValidationError{Field: "driver_id", Reason: "must not be zero"}
+		return &ValidationError{Field: "driver_id", Reason: reasonZeroValue}
 	}
 	if err := validatePoint(startPoint, "start_point"); err != nil {
 		return err

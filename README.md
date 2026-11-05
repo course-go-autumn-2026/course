@@ -88,21 +88,33 @@ curl -i localhost:8080/ready
 
 ```bash
 go build ./...
-make generate       # сгенерировать API-код из OpenAPI и моки
-make migrate        # применить миграции
-make migrate-down   # откатить одну миграцию; повторить для второй
-make test           # go test -race ./...
+make generate
+make migrate
+make migrate-down
+make lint
+make test
 ```
 
-Доменные и HTTP unit-тесты запускаются без БД. HTTP-тесты используют `httptest`
-и сгенерированные `gomock`-моки зависимостей. `make generate` обновляет моки через
-`go:generate`; сгенерированные `mocks_test.go` хранятся рядом с потребителями.
+`make test` запускает unit-тесты с `-race` и печатает покрытие по пакетам и по
+проекту. Порог ЛР2 для каждого пакета домена и usecase составляет 50%.
+`make generate` обновляет OpenAPI-код и `gomock`-моки рядом с контрактами.
+`make lint` использует [golangci-lint v2.15.0](https://github.com/golangci/golangci-lint/releases/tag/v2.15.0)
+из `PATH` и проверяет границы слоёв, форматирование и код с тегом `integration`.
 
-Интеграционные тесты используют отдельную переменную `TEST_DATABASE_URL`. Без неё
-они пропускаются; для полного прогона подготовьте **отдельную тестовую БД**,
-примените к ней миграции, задайте `TEST_DATABASE_URL` с её адресом и запустите
-`make test`. Тесты создают поездки и временный триггер, затем удаляют их. Команда
-`make generate` должна оставлять `internal/generated/api.gen.go` без изменений.
+Для интеграционных тестов создайте **отдельную тестовую БД** на PostgreSQL из
+окружения `tripgoctl`. Экспортируйте `TEST_DATABASE_URL` с её адресом, примените
+текущие миграции и запустите проверки.
+
+```bash
+go tool goose -dir migrations postgres "$TEST_DATABASE_URL" up
+make test-integration
+make test TEST_FLAGS=-count=2
+make test-integration TEST_FLAGS=-count=2
+```
+
+`make test-integration` требует `TEST_DATABASE_URL` и запускает тесты с
+`-race -tags=integration`. Тесты создают и удаляют собственные данные, включая
+временный триггер для проверки отката.
 
 Для ручной проверки отправьте `POST /api/v1/trips` с телом из
 [условия ЛР1](docs/course/homework/tasks/01-http-and-postgres/README.md), затем запросите

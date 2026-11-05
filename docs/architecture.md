@@ -159,16 +159,15 @@ graceful shutdown. Повторные или конкурентные вызов
 однократное закрытие при конкурентных вызовах и отказ при неверном конфиге БД.
 Интеграционные тесты проверяют
 HTTP-контракт, конкурентные операции, историю, откат, идемпотентность и жизненный
-цикл транзакций. Они пропускаются без `TEST_DATABASE_URL`; миграции для тестовой
-БД применяются отдельно. Проверки взаимодействия трёх usecase сохранены в
-[usecase_integration_test.go](../internal/usecase/trip/usecase_integration_test.go).
-Общий HTTP integration-тест сохранён в
-[router_integration_test.go](../internal/http/router_integration_test.go).
+цикл транзакций. Они помечены тегом `integration` и запускаются отдельно через
+`make test-integration` с `TEST_DATABASE_URL`. Миграции применяются к тестовой
+БД перед прогоном. Сквозные тесты HTTP и usecase находятся в
+[internal/integration](../internal/integration/).
 Unit-тесты HTTP-хендлеров и readiness используют `httptest` и `gomock` без БД;
 отдельно проверяются маппинг ошибок и делегирование операций роутером.
 Моки генерируются `go tool mockgen` через `go:generate` в `mocks_test.go` рядом
 с контрактами; `make generate` запускает OpenAPI-генерацию и `go generate`.
-Изолированных unit-тестов usecase с моками пока нет.
+Unit-тесты usecase подменяют репозиторий и менеджер транзакций через `gomock`.
 
 Логирование использует JSON slog с уровнем из env. Есть сообщения запуска,
 остановки и некоторых внутренних ошибок. HTTP access log, бизнес-логи,

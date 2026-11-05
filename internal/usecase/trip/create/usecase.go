@@ -9,9 +9,10 @@ import (
 	"fmt"
 	"time"
 
+	"github.com/google/uuid"
+
 	tripdomain "github.com/DaleCoopTP/grishin_lab1/internal/domain/trip"
 	"github.com/DaleCoopTP/grishin_lab1/internal/model"
-	"github.com/google/uuid"
 )
 
 const idempotencyTTL = 24 * time.Hour

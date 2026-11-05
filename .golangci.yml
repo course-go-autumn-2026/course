@@ -1,0 +1,133 @@
+version: "2"
+
+run:
+  concurrency: 8
+  timeout: 5m
+  build-tags:
+    - integration
+
+issues:
+  max-issues-per-linter: 0
+  max-same-issues: 0
+
+linters:
+  default: none
+  enable:
+    - depguard
+    - errcheck
+    - forbidigo
+    - gochecknoinits
+    - gocritic
+    - gocyclo
+    - goconst
+    - gosec
+    - govet
+    - ineffassign
+    - makezero
+    - prealloc
+    - revive
+    - staticcheck
+    - unconvert
+    - unparam
+    - unused
+    - whitespace
+
+  settings:
+    depguard:
+      rules:
+        domain:
+          files:
+            - "**/internal/domain/**"
+          deny:
+            - pkg: net/http
+              desc: домен не знает про транспорт
+            - pkg: github.com/go-chi/chi
+              desc: домен не знает про роутер
+            - pkg: github.com/jackc/pgx
+              desc: домен не знает про бд
+            - pkg: github.com/Masterminds/squirrel
+              desc: домен не строит SQL
+            - pkg: go.opentelemetry.io/otel
+              desc: домен не знает про телеметрию
+            - pkg: github.com/DaleCoopTP/grishin_lab1/internal/generated
+            - pkg: github.com/DaleCoopTP/grishin_lab1/internal/http
+            - pkg: github.com/DaleCoopTP/grishin_lab1/internal/infra
+            - pkg: github.com/DaleCoopTP/grishin_lab1/internal/repository
+            - pkg: github.com/DaleCoopTP/grishin_lab1/internal/usecase
+            - pkg: github.com/DaleCoopTP/grishin_lab1/internal/model
+            - pkg: github.com/DaleCoopTP/grishin_lab1/internal/container
+        usecase:
+          files:
+            - "**/internal/usecase/**"
+          deny:
+            - pkg: net/http
+              desc: usecase не знает про транспорт
+            - pkg: github.com/go-chi/chi
+              desc: usecase не знает про роутер
+            - pkg: github.com/jackc/pgx
+              desc: usecase работает через интерфейсы, а не через драйвер бд
+            - pkg: github.com/Masterminds/squirrel
+              desc: usecase не строит SQL
+            - pkg: github.com/DaleCoopTP/grishin_lab1/internal/generated
+            - pkg: github.com/DaleCoopTP/grishin_lab1/internal/http
+            - pkg: github.com/DaleCoopTP/grishin_lab1/internal/infra
+            - pkg: github.com/DaleCoopTP/grishin_lab1/internal/repository
+            - pkg: github.com/DaleCoopTP/grishin_lab1/internal/container
+        http:
+          files:
+            - "**/internal/http/**"
+          deny:
+            - pkg: github.com/DaleCoopTP/grishin_lab1/internal/infra
+            - pkg: github.com/DaleCoopTP/grishin_lab1/internal/repository
+
+    forbidigo:
+      forbid:
+        - pattern: ^[A-Za-z0-9]{1,}_.*\.
+
+    revive:
+      rules:
+        - name: var-naming
+          disabled: true
+
+    unparam:
+      check-exported: true
+
+    unused:
+      field-writes-are-uses: false
+
+  exclusions:
+    generated: lax
+    presets:
+      - comments
+      - common-false-positives
+      - legacy
+      - std-error-handling
+    paths:
+      - third_party$
+      - builtin$
+      - examples$
+      - api/
+      - gen/
+
+formatters:
+  enable:
+    - gofumpt
+    - gci
+
+  settings:
+    gci:
+      sections:
+        - standard
+        - default
+        - localmodule
+    gofumpt:
+      extra:
+        group-params: true
+        clothe-returns: true
+
+  exclusions:
+    generated: lax
+    paths:
+      - third_party$
+      - builtin$
+      - examples$

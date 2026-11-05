@@ -1,9 +1,10 @@
 package trip
 
 import (
-	tripdomain "github.com/DaleCoopTP/grishin_lab1/internal/domain/trip"
 	"github.com/jackc/pgx/v5"
 	"github.com/jackc/pgx/v5/pgtype"
+
+	tripdomain "github.com/DaleCoopTP/grishin_lab1/internal/domain/trip"
 )
 
 func scanTrip(row pgx.Row) (tripdomain.Trip, error) {

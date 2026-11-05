@@ -4,8 +4,9 @@
 package httptransport
 
 import (
-	"github.com/DaleCoopTP/grishin_lab1/internal/generated"
 	"net/http"
+
+	"github.com/DaleCoopTP/grishin_lab1/internal/generated"
 )
 
 type createHandler interface {

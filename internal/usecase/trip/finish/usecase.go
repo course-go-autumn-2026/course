@@ -5,8 +5,9 @@ import (
 	"fmt"
 	"time"
 
-	tripdomain "github.com/DaleCoopTP/grishin_lab1/internal/domain/trip"
 	"github.com/google/uuid"
+
+	tripdomain "github.com/DaleCoopTP/grishin_lab1/internal/domain/trip"
 )
 
 type Usecase struct {

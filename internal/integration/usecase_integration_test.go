@@ -1,4 +1,6 @@
-package trip_test
+//go:build integration
+
+package integration_test
 
 import (
 	"context"
@@ -10,6 +12,10 @@ import (
 	"testing"
 	"time"
 
+	"github.com/google/uuid"
+	"github.com/jackc/pgx/v5/pgconn"
+	"github.com/jackc/pgx/v5/pgxpool"
+
 	tripdomain "github.com/DaleCoopTP/grishin_lab1/internal/domain/trip"
 	"github.com/DaleCoopTP/grishin_lab1/internal/infra/postgres/transaction"
 	"github.com/DaleCoopTP/grishin_lab1/internal/model"
@@ -17,8 +23,6 @@ import (
 	"github.com/DaleCoopTP/grishin_lab1/internal/usecase/trip/create"
 	"github.com/DaleCoopTP/grishin_lab1/internal/usecase/trip/finish"
 	"github.com/DaleCoopTP/grishin_lab1/internal/usecase/trip/get"
-	"github.com/google/uuid"
-	"github.com/jackc/pgx/v5/pgxpool"
 )
 
 func TestUsecasesConcurrencyAndHistory(t *testing.T) {
@@ -143,19 +147,19 @@ END $$`, functionName, driverID)
 	if _, err := pool.Exec(ctx, functionSQL); err != nil {
 		t.Fatal(err)
 	}
-	if _, err := pool.Exec(ctx, fmt.Sprintf("CREATE TRIGGER %s BEFORE INSERT ON trip_status_history FOR EACH ROW EXECUTE FUNCTION %s()", name, functionName)); err != nil {
-		t.Fatal(err)
-	}
 	t.Cleanup(func() {
 		cleanupCtx, cleanupCancel := context.WithTimeout(context.Background(), 5*time.Second)
 		defer cleanupCancel()
-		if _, err := pool.Exec(cleanupCtx, "DROP TRIGGER "+name+" ON trip_status_history"); err != nil {
+		if _, err := pool.Exec(cleanupCtx, "DROP TRIGGER IF EXISTS "+name+" ON trip_status_history"); err != nil {
 			t.Errorf("drop trigger: %v", err)
 		}
 		if _, err := pool.Exec(cleanupCtx, "DROP FUNCTION "+functionName+"()"); err != nil {
 			t.Errorf("drop trigger function: %v", err)
 		}
 	})
+	if _, err := pool.Exec(ctx, fmt.Sprintf("CREATE TRIGGER %s BEFORE INSERT ON trip_status_history FOR EACH ROW EXECUTE FUNCTION %s()", name, functionName)); err != nil {
+		t.Fatal(err)
+	}
 
 	_, err := usecases.create.Create(ctx, model.CreateTripInput{
 		UserID: uuid.New(), DriverID: driverID,
@@ -163,8 +167,9 @@ END $$`, functionName, driverID)
 		EndPoint:   tripdomain.Point{Latitude: 3, Longitude: 4},
 		Price:      100,
 	})
-	if err == nil {
-		t.Fatal("create succeeded despite failed history insert")
+	var pgErr *pgconn.PgError
+	if !errors.As(err, &pgErr) || pgErr.Code != "P0001" || pgErr.Message != "forced history failure" {
+		t.Fatalf("expected forced history failure, got %v", err)
 	}
 	var count int
 	if err := pool.QueryRow(ctx, "SELECT count(*) FROM trips WHERE driver_id = $1", driverID).Scan(&count); err != nil || count != 0 {
@@ -261,7 +266,7 @@ func testUsecases(t *testing.T) (tripUsecases, *pgxpool.Pool) {
 	t.Helper()
 	databaseURL := os.Getenv("TEST_DATABASE_URL")
 	if databaseURL == "" {
-		t.Skip("TEST_DATABASE_URL is not set")
+		t.Fatal("TEST_DATABASE_URL is not set")
 	}
 	ctx, cancel := context.WithTimeout(context.Background(), 5*time.Second)
 	defer cancel()

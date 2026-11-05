@@ -8,11 +8,12 @@ import (
 	"net/http/httptest"
 	"testing"
 
+	"github.com/google/uuid"
+	"go.uber.org/mock/gomock"
+
 	"github.com/DaleCoopTP/grishin_lab1/internal/generated"
 	httptransport "github.com/DaleCoopTP/grishin_lab1/internal/http"
 	"github.com/DaleCoopTP/grishin_lab1/internal/http/response"
-	"github.com/google/uuid"
-	"go.uber.org/mock/gomock"
 )
 
 func TestRouter(t *testing.T) {
@@ -22,14 +23,14 @@ func TestRouter(t *testing.T) {
 		invalid            bool
 		key                string
 	}{
-		{"create", "POST", "/api/v1/trips", false, key.String()},
-		{"get", "GET", "/api/v1/trips/" + id.String(), false, ""},
-		{"finish", "POST", "/api/v1/trips/" + id.String() + "/finish", false, ""},
-		{"health", "GET", "/health", false, ""},
-		{"ready", "GET", "/ready", false, ""},
-		{"invalid get UUID", "GET", "/api/v1/trips/bad", true, ""},
-		{"invalid finish UUID", "POST", "/api/v1/trips/bad/finish", true, ""},
-		{"invalid key", "POST", "/api/v1/trips", true, "bad"},
+		{"create", http.MethodPost, "/api/v1/trips", false, key.String()},
+		{"get", http.MethodGet, "/api/v1/trips/" + id.String(), false, ""},
+		{"finish", http.MethodPost, "/api/v1/trips/" + id.String() + "/finish", false, ""},
+		{"health", http.MethodGet, "/health", false, ""},
+		{"ready", http.MethodGet, "/ready", false, ""},
+		{"invalid get UUID", http.MethodGet, "/api/v1/trips/bad", true, ""},
+		{"invalid finish UUID", http.MethodPost, "/api/v1/trips/bad/finish", true, ""},
+		{"invalid key", http.MethodPost, "/api/v1/trips", true, "bad"},
 	}
 	for _, tc := range cases {
 		t.Run(tc.name, func(t *testing.T) {
