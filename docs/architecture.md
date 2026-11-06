@@ -21,12 +21,12 @@ gRPC и Kafka пока не реализованы, хотя их контрак
 cmd/trip-service/main.go
   ├── config.Load
   ├── container.New(ctx, cfg)
-  │     ├── telemetry.NewLogger
+  │     ├── telemetry.NewLogger + telemetry.NewSDK
   │     ├── postgres.Open → pgxpool
   │     ├── transaction.NewTxManager
   │     ├── triprepository.NewRepository
   │     ├── create.New / get.New / finish.New
-  │     └── HTTP-хендлеры + response.Writer → роутер → HTTP-сервер
+  │     └── HTTP-хендлеры + response.Writer → роутер → middleware → HTTP-сервер
   └── запуск сервера, ожидание сигнала, shutdown и container.Close
 
 HTTP → сгенерированный роутер → http/trip/{create,get,finish} → usecase/trip/{create,get,finish}
@@ -43,7 +43,8 @@ HTTP → сгенерированный роутер → http/trip/{create,get,f
 | [http/trip/get](../internal/http/trip/get/handler.go) | Получение поездки через свой usecase |
 | [http/trip/finish](../internal/http/trip/finish/handler.go) | Завершение поездки через свой usecase |
 | [http/domainerror](../internal/http/domainerror/domainerror.go) | Единый маппинг ошибок в статус и Problem |
-| [http/response](../internal/http/response/writer.go) | Запись JSON и Problem, instance и логирование внутренних ошибок |
+| [http/response](../internal/http/response/writer.go) | Запись JSON и Problem с instance |
+| [http/middleware](../internal/http/middleware/middleware.go) | Восстановление после паники, трассировка, итоговые логи и метрики HTTP |
 | [create.Usecase](../internal/usecase/trip/create/usecase.go) | Создание поездки и идемпотентность в одной транзакции |
 | [get.Usecase](../internal/usecase/trip/get/usecase.go) | Получение поездки |
 | [finish.Usecase](../internal/usecase/trip/finish/usecase.go) | Завершение и запись истории в одной транзакции |
@@ -54,7 +55,7 @@ HTTP → сгенерированный роутер → http/trip/{create,get,f
 | [repository/trip/convert](../internal/repository/trip/convert.go) | Преобразование строки PostgreSQL в доменную поездку |
 | [transaction.Manager](../internal/infra/postgres/transaction/transaction.go) | Транзакции и выбор исполнителя SQL |
 | [postgres.Open](../internal/infra/postgres/pool.go) | Пул подключений и стартовый Ping |
-| [telemetry.NewLogger](../internal/infra/telemetry/logger.go) | Инициализация JSON slog; OTel пока не подключён |
+| [infra/telemetry](../internal/infra/telemetry/sdk.go) | JSON slog, провайдеры OpenTelemetry и экспорт OTLP |
 
 Каждый usecase объявляет неэкспортируемые интерфейсы зависимостей в своём
 `contract.go`. Создание использует операции записи и идемпотентности;
@@ -94,8 +95,8 @@ HTTP проверяет тип и размер тела, форму JSON, тип
 Ошибки бизнес-ручек возвращаются как `application/problem+json`.
 `domainerror.Problem` распознаёт доменные ошибки, включая `ValidationError`,
 и формирует статус и ответ. `response.Writer` добавляет `instance` и записывает
-ответ. Неизвестная ошибка логируется один раз и превращается в
-`500 internal_error` без технических деталей в теле. Ошибки разбора параметров
+ответ. Неизвестная ошибка превращается в `500 internal_error`, а middleware
+записывает итоговый статус и идентификаторы трейса в лог запроса. Ошибки разбора параметров
 сгенерированным роутером также возвращаются как `400 invalid_request`.
 `/health` не обращается к БД; `/ready` делает Ping.
 
@@ -169,9 +170,20 @@ Unit-тесты HTTP-хендлеров и readiness используют `httpt
 с контрактами; `make generate` запускает OpenAPI-генерацию и `go generate`.
 Unit-тесты usecase подменяют репозиторий и менеджер транзакций через `gomock`.
 
-Логирование использует JSON slog с уровнем из env. Есть сообщения запуска,
-остановки и некоторых внутренних ошибок. HTTP access log, бизнес-логи,
-метрики, трейсы, корреляция логов с трейсами и экспорт OTel пока отсутствуют.
+HTTP проходит через `Recover → Tracing → Logging → Metrics → роутер`.
+Контейнер передаёт провайдеры OTel в middleware и трассировщик пула. HTTP-логи,
+спаны и метрики используют шаблон маршрута. Итоговые лог и метрика получают
+статус после обработки паники. `slog` добавляет `trace_id` и `span_id` из контекста.
+
+На уровне пула `otelpgx` создаёт дочерние спаны запросов, а обёртка записывает
+длительность с атрибутами операции, таблицы и типа ошибки. SQL и параметры
+запросов исключены из экспорта. События создания и завершения отправляются из
+usecase после коммита через интерфейсы потребителей. Они обновляют счётчики и
+бизнес-логи. Gauge активных поездок читает текущее число строк в БД с таймаутом.
+
+Ошибки экспорта OTLP логируются как предупреждения. API и readiness продолжают
+работать при отказе коллектора. При остановке контейнер закрывает провайдеры
+телеметрии в пределах бюджета shutdown, пока пул ещё доступен для сбора gauge.
 
 ## Материалы курса
 

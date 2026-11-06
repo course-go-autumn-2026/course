@@ -24,3 +24,7 @@ type tripRepository interface {
 type txManager interface {
 	Do(ctx context.Context, fn func(ctx context.Context) error) error
 }
+
+type tripEvents interface {
+	Created(ctx context.Context, id uuid.UUID)
+}

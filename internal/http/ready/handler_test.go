@@ -3,8 +3,6 @@ package ready_test
 import (
 	"context"
 	"errors"
-	"io"
-	"log/slog"
 	"net/http/httptest"
 	"strings"
 	"testing"
@@ -30,7 +28,7 @@ func TestReadiness(t *testing.T) {
 				}
 				return nil
 			})
-			writer := response.New(slog.New(slog.NewTextHandler(io.Discard, nil)))
+			writer := response.New()
 			handler := ready.New(checker, time.Second, writer)
 			out := httptest.NewRecorder()
 			handler.ServeHTTP(out, httptest.NewRequest("GET", "/ready", nil))

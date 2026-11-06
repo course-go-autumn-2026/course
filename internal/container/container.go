@@ -10,6 +10,7 @@ import (
 	"github.com/DaleCoopTP/grishin_lab1/internal/config"
 	httptransport "github.com/DaleCoopTP/grishin_lab1/internal/http"
 	"github.com/DaleCoopTP/grishin_lab1/internal/http/health"
+	"github.com/DaleCoopTP/grishin_lab1/internal/http/middleware"
 	"github.com/DaleCoopTP/grishin_lab1/internal/http/ready"
 	"github.com/DaleCoopTP/grishin_lab1/internal/http/response"
 	httpcreate "github.com/DaleCoopTP/grishin_lab1/internal/http/trip/create"
@@ -27,32 +28,63 @@ import (
 type Container struct {
 	Server         *http.Server
 	Logger         *slog.Logger
-	closeResources func()
+	closeResources func(context.Context)
 	closeOnce      sync.Once
 	closed         chan struct{}
 }
 
-func New(ctx context.Context, cfg config.Config) (*Container, error) {
+func New(ctx context.Context, cfg config.Config) (_ *Container, err error) {
 	logger := telemetry.NewLogger(cfg.LogLevel)
-	pool, err := postgres.Open(ctx, cfg)
+	sdk := telemetry.NewSDK(ctx, logger)
+	var closePool func()
+	closeResources := func(ctx context.Context) {
+		if err := sdk.Shutdown(ctx); err != nil {
+			logger.WarnContext(ctx, "telemetry shutdown failed", "error.type", fmt.Sprintf("%T", err))
+		}
+		if closePool != nil {
+			closePool()
+		}
+	}
+	defer func() {
+		if err != nil {
+			closeCtx, cancel := context.WithTimeout(context.WithoutCancel(ctx), cfg.ShutdownTimeout)
+			defer cancel()
+			closeResources(closeCtx)
+		}
+	}()
+	meter := sdk.Metrics.Meter("trip-service")
+	queryTracer, err := postgres.NewQueryTracer(sdk.Traces, meter)
+	if err != nil {
+		return nil, err
+	}
+	pool, err := postgres.Open(ctx, cfg, queryTracer)
 	if err != nil {
 		return nil, fmt.Errorf("open database: %w", err)
 	}
+	closePool = pool.Close
 	txManager := transaction.NewTxManager(pool, cfg.DatabaseQueryTimeout)
 	repository := triprepository.NewRepository(txManager, cfg.DatabaseQueryTimeout)
-	createTrip := create.New(repository, txManager)
+	events, err := telemetry.NewTripEvents(meter, logger, repository)
+	if err != nil {
+		return nil, err
+	}
+	createTrip := create.New(repository, txManager, events)
 	getTrip := get.New(repository)
-	finishTrip := finish.New(repository, txManager)
-	writer := response.New(logger)
+	finishTrip := finish.New(repository, txManager, events)
+	writer := response.New()
 	createHandler := httpcreate.New(createTrip, writer)
 	getHandler := httpget.New(getTrip, writer)
 	finishHandler := httpfinish.New(finishTrip, writer)
 	healthHandler := health.New(writer)
 	readyHandler := ready.New(pool, cfg.DatabaseQueryTimeout, writer)
 	router := httptransport.NewRouter(createHandler, getHandler, finishHandler, healthHandler, readyHandler, writer)
+	handler, err := middleware.Wrap(router, writer, logger, sdk.Traces, meter)
+	if err != nil {
+		return nil, err
+	}
 	server := &http.Server{
 		Addr:              cfg.HTTPAddr,
-		Handler:           router,
+		Handler:           handler,
 		ReadTimeout:       cfg.HTTPReadTimeout,
 		ReadHeaderTimeout: cfg.HTTPReadHeaderTimeout,
 		WriteTimeout:      cfg.HTTPWriteTimeout,
@@ -62,7 +94,7 @@ func New(ctx context.Context, cfg config.Config) (*Container, error) {
 	return &Container{
 		Server:         server,
 		Logger:         logger,
-		closeResources: pool.Close,
+		closeResources: closeResources,
 		closed:         make(chan struct{}),
 	}, nil
 }
@@ -70,7 +102,7 @@ func New(ctx context.Context, cfg config.Config) (*Container, error) {
 func (c *Container) Close(ctx context.Context) error {
 	c.closeOnce.Do(func() {
 		go func() {
-			c.closeResources()
+			c.closeResources(ctx)
 			close(c.closed)
 		}()
 	})

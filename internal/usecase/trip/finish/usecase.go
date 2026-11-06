@@ -11,12 +11,13 @@ import (
 )
 
 type Usecase struct {
-	repo tripRepository
-	tx   txManager
+	repo   tripRepository
+	tx     txManager
+	events tripEvents
 }
 
-func New(repo tripRepository, tx txManager) *Usecase {
-	return &Usecase{repo: repo, tx: tx}
+func New(repo tripRepository, tx txManager, events tripEvents) *Usecase {
+	return &Usecase{repo: repo, tx: tx, events: events}
 }
 
 func (s *Usecase) Finish(ctx context.Context, id uuid.UUID) (tripdomain.Trip, error) {
@@ -38,6 +39,9 @@ func (s *Usecase) Finish(ctx context.Context, id uuid.UUID) (tripdomain.Trip, er
 		return s.repo.InsertHistory(txCtx, id, &fromStatus, trip.Status, "Trip finished", now)
 	}); err != nil {
 		return tripdomain.Trip{}, fmt.Errorf("finish trip: %w", err)
+	}
+	if s.events != nil {
+		s.events.Completed(ctx, trip.ID)
 	}
 	return trip, nil
 }

@@ -34,6 +34,8 @@ func TestCreate(t *testing.T) {
 		t.Run(tc.name, func(t *testing.T) {
 			ctrl := gomock.NewController(t)
 			repo, tx := NewMocktripRepository(ctrl), NewMocktxManager(ctrl)
+			events := NewMocktripEvents(ctrl)
+			committed := false
 			ctx := t.Context()
 			txCtx, cancel := context.WithCancel(ctx)
 			defer cancel()
@@ -41,6 +43,7 @@ func TestCreate(t *testing.T) {
 				if err := fn(txCtx); err != nil {
 					return err
 				}
+				committed = tc.commitErr == nil
 				return tc.commitErr
 			})
 			input := validInput()
@@ -63,7 +66,14 @@ func TestCreate(t *testing.T) {
 						return tc.historyErr
 					})
 			}
-			got, err := create.New(repo, tx).Create(ctx, input)
+			if tc.wantErr == nil {
+				events.EXPECT().Created(ctx, gomock.Any()).Do(func(_ context.Context, id uuid.UUID) {
+					if !committed || id != inserted.ID {
+						t.Fatalf("event before commit or with wrong trip ID: %s", id)
+					}
+				})
+			}
+			got, err := create.New(repo, tx, events).Create(ctx, input)
 			if !errors.Is(err, tc.wantErr) {
 				t.Fatalf("Create: got %v, want %v", err, tc.wantErr)
 			}
@@ -110,7 +120,7 @@ func TestCreateWithKeyReturnsSavedSnapshot(t *testing.T) {
 			if changed {
 				request.Price++
 			}
-			got, replayed, err := create.New(repo, tx).CreateWithKey(ctx, request, &key)
+			got, replayed, err := create.New(repo, tx, NewMocktripEvents(ctrl)).CreateWithKey(ctx, request, &key)
 			if changed {
 				if !errors.Is(err, trip.ErrIdempotencyConflict) || replayed || got != (trip.Trip{}) {
 					t.Fatalf("expected idempotency conflict, got %+v, replayed %v, error %v", got, replayed, err)
@@ -129,7 +139,7 @@ func TestCreateValidatesBeforeOpeningTransaction(t *testing.T) {
 	key := uuid.New()
 	input := validInput()
 	input.Price = -1
-	got, replayed, err := create.New(NewMocktripRepository(ctrl), NewMocktxManager(ctrl)).CreateWithKey(t.Context(), input, &key)
+	got, replayed, err := create.New(NewMocktripRepository(ctrl), NewMocktxManager(ctrl), nil).CreateWithKey(t.Context(), input, &key)
 	var validationErr *trip.ValidationError
 	if !errors.As(err, &validationErr) || validationErr.Field != "price" || replayed || got != (trip.Trip{}) {
 		t.Fatalf("expected price validation error, got %+v, replayed %v, error %v", got, replayed, err)

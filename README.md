@@ -1,4 +1,4 @@
-# Trip Service — лабораторная работа 1
+# Trip Service
 
 Сервис создаёт поездки, возвращает их по ID и завершает. HTTP API задан в
 [`contracts/openapi/trip-service.openapi.yaml`](contracts/openapi/trip-service.openapi.yaml),
@@ -35,7 +35,7 @@ README.md             описание и инструкция запуска
 ## Запуск
 
 Нужны Go **1.25.7+** и установленный [`tripgoctl`](https://github.com/course-go-autumn-2026/course-infra).
-Для ЛР1 окружение поднимает только PostgreSQL. Из корня репозитория выполните:
+Окружение ЛР2 поднимает PostgreSQL и стек observability. Из корня репозитория выполните:
 
 ```bash
 tripgoctl cluster start          # один раз на машине
@@ -83,6 +83,16 @@ curl -i localhost:8080/ready
 | `DATABASE_MAX_CONN_LIFETIME` | срок жизни соединения | `30m` |
 | `DATABASE_CONNECT_TIMEOUT` | подключение и стартовый `Ping` | `5s` |
 | `DATABASE_QUERY_TIMEOUT` | запросы и транзакции | `3s` |
+| `OTEL_SERVICE_NAME` | имя сервиса в телеметрии | `trip-service` |
+| `OTEL_EXPORTER_OTLP_ENDPOINT` | адрес коллектора | из `.env` |
+| `OTEL_EXPORTER_OTLP_PROTOCOL` | протокол экспорта | `http/protobuf` или `grpc` |
+| `OTEL_TRACES_SAMPLER` | правило сэмплирования | `parentbased_always_on` |
+| `OTEL_METRIC_EXPORT_INTERVAL` | интервал экспорта метрик в миллисекундах | `60000` |
+
+Ссылки на Jaeger и Grafana выводит `tripgoctl connect`. Выполните запрос и
+найдите его трейс по `trace_id` из JSON-лога. В трейсе запроса к БД есть HTTP-спан
+и дочерние спаны PostgreSQL. В Grafana доступны метрики HTTP, запросов БД и
+поездок. При пустом endpoint сервис запускается с локальным логированием.
 
 ## Команды и проверка
 

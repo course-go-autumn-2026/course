@@ -34,6 +34,8 @@ func TestFinish(t *testing.T) {
 		t.Run(tc.name, func(t *testing.T) {
 			ctrl := gomock.NewController(t)
 			repo, tx := NewMocktripRepository(ctrl), NewMocktxManager(ctrl)
+			events := NewMocktripEvents(ctrl)
+			committed := false
 			ctx := t.Context()
 			txCtx, cancel := context.WithCancel(ctx)
 			defer cancel()
@@ -41,6 +43,7 @@ func TestFinish(t *testing.T) {
 				if err := fn(txCtx); err != nil {
 					return err
 				}
+				committed = tc.commitErr == nil
 				return tc.commitErr
 			})
 			id := uuid.New()
@@ -66,7 +69,14 @@ func TestFinish(t *testing.T) {
 						})
 				}
 			}
-			got, err := finish.New(repo, tx).Finish(ctx, id)
+			if tc.wantErr == nil {
+				events.EXPECT().Completed(ctx, gomock.Any()).Do(func(_ context.Context, id uuid.UUID) {
+					if !committed || id != saved.ID {
+						t.Fatalf("event before commit or with wrong trip ID: %s", id)
+					}
+				})
+			}
+			got, err := finish.New(repo, tx, events).Finish(ctx, id)
 			if !errors.Is(err, tc.wantErr) {
 				t.Fatalf("Finish: got %v, want %v", err, tc.wantErr)
 			}

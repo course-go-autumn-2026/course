@@ -4,8 +4,6 @@ import (
 	"context"
 	"encoding/json"
 	"errors"
-	"io"
-	"log/slog"
 	"net/http/httptest"
 	"strings"
 	"testing"
@@ -48,7 +46,7 @@ func TestHandler(t *testing.T) {
 				}
 				return result, tc.err
 			})
-			writer := response.New(slog.New(slog.NewTextHandler(io.Discard, nil)))
+			writer := response.New()
 			handler := finish.New(usecase, writer)
 			req := httptest.NewRequest("POST", "/api/v1/trips/"+id.String(), nil)
 			out := httptest.NewRecorder()

@@ -194,3 +194,14 @@ func (r *Repository) SaveCompletion(ctx context.Context, trip tripdomain.Trip) e
 	}
 	return nil
 }
+
+func (r *Repository) CountActive(ctx context.Context) (int64, error) {
+	queryCtx, cancel := context.WithTimeout(ctx, r.queryTimeout)
+	defer cancel()
+	var count int64
+	const query = "SELECT count(*) FROM trips WHERE status = $1"
+	if err := r.tx.Executor(queryCtx).QueryRow(queryCtx, query, tripdomain.StatusActive).Scan(&count); err != nil {
+		return 0, fmt.Errorf("count active trips: %w", err)
+	}
+	return count, nil
+}

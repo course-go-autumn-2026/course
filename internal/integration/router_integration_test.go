@@ -6,8 +6,6 @@ import (
 	"context"
 	"encoding/json"
 	"fmt"
-	"io"
-	"log/slog"
 	"net/http"
 	"net/http/httptest"
 	"os"
@@ -155,11 +153,10 @@ func TestTripHTTPContract(t *testing.T) {
 func testRouter(pool *pgxpool.Pool) http.Handler {
 	tx := transaction.NewTxManager(pool, 5*time.Second)
 	repository := triprepository.NewRepository(tx, 3*time.Second)
-	createTrip := create.New(repository, tx)
+	createTrip := create.New(repository, tx, nil)
 	getTrip := get.New(repository)
-	finishTrip := finish.New(repository, tx)
-	logger := slog.New(slog.NewTextHandler(io.Discard, nil))
-	writer := response.New(logger)
+	finishTrip := finish.New(repository, tx, nil)
+	writer := response.New()
 	return httptransport.NewRouter(httpcreate.New(createTrip, writer), httpget.New(getTrip, writer),
 		httpfinish.New(finishTrip, writer), health.New(writer), ready.New(pool, 3*time.Second, writer), writer)
 }

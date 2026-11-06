@@ -4,8 +4,6 @@ import (
 	"encoding/json"
 	"errors"
 	"fmt"
-	"io"
-	"log/slog"
 	"net/http/httptest"
 	"strings"
 	"testing"
@@ -54,7 +52,7 @@ func TestHandler(t *testing.T) {
 				Status: trip.StatusActive, StartedAt: time.Date(2026, time.November, 1, 12, 0, 0, 0, time.UTC),
 			}
 			usecase.EXPECT().CreateWithKey(gomock.Any(), input, &key).Return(result, tc.replayed, tc.err)
-			writer := response.New(slog.New(slog.NewTextHandler(io.Discard, nil)))
+			writer := response.New()
 			handler := create.New(usecase, writer)
 			req := httptest.NewRequest("POST", "/api/v1/trips", strings.NewReader(requestBody))
 			req.Header.Set("Content-Type", jsonContentType)
@@ -97,7 +95,7 @@ func TestHandlerRejectsInvalidRequest(t *testing.T) {
 	for _, tc := range cases {
 		t.Run(tc.name, func(t *testing.T) {
 			usecase := NewMockusecase(gomock.NewController(t))
-			writer := response.New(slog.New(slog.NewTextHandler(io.Discard, nil)))
+			writer := response.New()
 			handler := create.New(usecase, writer)
 			req := httptest.NewRequest("POST", "/api/v1/trips", strings.NewReader(tc.body))
 			req.Header.Set("Content-Type", tc.contentType)

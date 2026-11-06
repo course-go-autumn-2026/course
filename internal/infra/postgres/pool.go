@@ -4,16 +4,18 @@ import (
 	"context"
 	"fmt"
 
+	"github.com/jackc/pgx/v5"
 	"github.com/jackc/pgx/v5/pgxpool"
 
 	"github.com/DaleCoopTP/grishin_lab1/internal/config"
 )
 
-func Open(ctx context.Context, cfg config.Config) (*pgxpool.Pool, error) {
+func Open(ctx context.Context, cfg config.Config, tracer pgx.QueryTracer) (*pgxpool.Pool, error) {
 	poolConfig, err := pgxpool.ParseConfig(cfg.DatabaseURL)
 	if err != nil {
 		return nil, fmt.Errorf("parse DATABASE_URL: %w", err)
 	}
+	poolConfig.ConnConfig.Tracer = tracer
 	poolConfig.MaxConns = cfg.DatabaseMaxConns
 	poolConfig.MinConns = cfg.DatabaseMinConns
 	poolConfig.MaxConnLifetime = cfg.DatabaseMaxConnLifetime

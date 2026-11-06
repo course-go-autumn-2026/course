@@ -17,7 +17,7 @@ func TestCloseWaitsForResources(t *testing.T) {
 	t.Cleanup(func() { releaseOnce.Do(func() { close(release) }) })
 	app := &Container{
 		closed: make(chan struct{}),
-		closeResources: func() {
+		closeResources: func(context.Context) {
 			close(started)
 			<-release
 		},
@@ -43,7 +43,7 @@ func TestCloseCancellationDoesNotAbandonCleanup(t *testing.T) {
 	var calls atomic.Int32
 	app := &Container{
 		closed: make(chan struct{}),
-		closeResources: func() {
+		closeResources: func(context.Context) {
 			calls.Add(1)
 			<-release
 		},
@@ -66,7 +66,7 @@ func TestConcurrentCloseReleasesResourcesOnce(t *testing.T) {
 	var calls atomic.Int32
 	app := &Container{
 		closed:         make(chan struct{}),
-		closeResources: func() { calls.Add(1) },
+		closeResources: func(context.Context) { calls.Add(1) },
 	}
 	var workers sync.WaitGroup
 	for range 8 {

@@ -2,27 +2,21 @@ package response
 
 import (
 	"encoding/json"
-	"log/slog"
 	"net/http"
 
 	"github.com/DaleCoopTP/grishin_lab1/internal/http/domainerror"
 )
 
-type Writer struct {
-	logger *slog.Logger
-}
+type Writer struct{}
 
-func New(logger *slog.Logger) *Writer {
-	return &Writer{logger: logger}
+func New() *Writer {
+	return &Writer{}
 }
 
 func (w *Writer) Error(out http.ResponseWriter, r *http.Request, err error) {
 	status, body := domainerror.Problem(err)
 	path := r.URL.Path
 	body.Instance = &path
-	if status >= http.StatusInternalServerError {
-		w.logger.ErrorContext(r.Context(), "request failed", "error", err, "method", r.Method, "path", path)
-	}
 	data, marshalErr := json.Marshal(body)
 	if marshalErr != nil {
 		http.Error(out, "Internal server error", http.StatusInternalServerError)

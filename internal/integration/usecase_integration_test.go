@@ -287,9 +287,9 @@ func testUsecases(t *testing.T) (tripUsecases, *pgxpool.Pool) {
 	txManager := transaction.NewTxManager(pool, 5*time.Second)
 	repo := triprepository.NewRepository(txManager, 3*time.Second)
 	return tripUsecases{
-		create: create.New(repo, txManager),
+		create: create.New(repo, txManager, nil),
 		get:    get.New(repo),
-		finish: finish.New(repo, txManager),
+		finish: finish.New(repo, txManager, nil),
 	}, pool
 }
 

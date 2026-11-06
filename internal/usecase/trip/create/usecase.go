@@ -18,12 +18,13 @@ import (
 const idempotencyTTL = 24 * time.Hour
 
 type Usecase struct {
-	repo tripRepository
-	tx   txManager
+	repo   tripRepository
+	tx     txManager
+	events tripEvents
 }
 
-func New(repo tripRepository, tx txManager) *Usecase {
-	return &Usecase{repo: repo, tx: tx}
+func New(repo tripRepository, tx txManager, events tripEvents) *Usecase {
+	return &Usecase{repo: repo, tx: tx, events: events}
 }
 
 func (s *Usecase) Create(ctx context.Context, input model.CreateTripInput) (tripdomain.Trip, error) {
@@ -79,6 +80,9 @@ func (s *Usecase) CreateWithKey(ctx context.Context, input model.CreateTripInput
 		return nil
 	}); err != nil {
 		return tripdomain.Trip{}, false, fmt.Errorf("create trip: %w", err)
+	}
+	if s.events != nil && !replayed {
+		s.events.Created(ctx, trip.ID)
 	}
 	return trip, replayed, nil
 }

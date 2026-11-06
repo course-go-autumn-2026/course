@@ -22,14 +22,16 @@ var _ api.ServerInterface = (*serverHandlers)(nil)
 
 func NewRouter(create createHandler, get, finish tripHandler,
 	health, ready http.Handler, response *response.Writer,
-) http.Handler {
+) chi.Router {
 	handlers := &serverHandlers{create: create, get: get, finish: finish, health: health, ready: ready}
-	return api.HandlerWithOptions(handlers, api.ChiServerOptions{
-		BaseRouter: chi.NewRouter(),
+	router := chi.NewRouter()
+	api.HandlerWithOptions(handlers, api.ChiServerOptions{
+		BaseRouter: router,
 		ErrorHandlerFunc: func(w http.ResponseWriter, r *http.Request, _ error) {
 			response.Error(w, r, domainerror.ErrInvalidRequest)
 		},
 	})
+	return router
 }
 
 func (h *serverHandlers) CreateTrip(w http.ResponseWriter, r *http.Request, params api.CreateTripParams) {

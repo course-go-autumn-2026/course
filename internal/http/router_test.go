@@ -2,8 +2,6 @@ package httptransport_test
 
 import (
 	"encoding/json"
-	"io"
-	"log/slog"
 	"net/http"
 	"net/http/httptest"
 	"testing"
@@ -55,7 +53,7 @@ func TestRouter(t *testing.T) {
 				ready.EXPECT().ServeHTTP(gomock.Any(), gomock.Any()).Do(
 					func(w http.ResponseWriter, _ *http.Request) { w.WriteHeader(204) })
 			}
-			writer := response.New(slog.New(slog.NewTextHandler(io.Discard, nil)))
+			writer := response.New()
 			router := httptransport.NewRouter(create, get, finish, health, ready, writer)
 			req := httptest.NewRequest(tc.method, tc.path, nil)
 			if tc.key != "" {
