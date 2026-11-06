@@ -47,7 +47,7 @@ func (r *Repository) Insert(ctx context.Context, trip tripdomain.Trip) error {
 		if errors.As(err, &pgErr) && pgErr.Code == "23505" && pgErr.ConstraintName == "trips_one_active_per_driver_idx" {
 			return fmt.Errorf("insert trip: %w", errors.Join(tripdomain.ErrDriverBusy, err))
 		}
-		return fmt.Errorf("insert trip: %w", err)
+		return fmt.Errorf("insert trip (SQL %q): %w", query, err)
 	}
 	return nil
 }
@@ -64,7 +64,7 @@ func (r *Repository) InsertHistory(ctx context.Context, tripID uuid.UUID, fromSt
 	queryCtx, cancel := context.WithTimeout(ctx, r.queryTimeout)
 	defer cancel()
 	if _, err := r.tx.Executor(queryCtx).Exec(queryCtx, query, args...); err != nil {
-		return fmt.Errorf("insert status history: %w", err)
+		return fmt.Errorf("insert status history (SQL %q): %w", query, err)
 	}
 	return nil
 }
@@ -78,7 +78,7 @@ func (r *Repository) LockIdempotencyKey(ctx context.Context, key uuid.UUID) erro
 	queryCtx, cancel := context.WithTimeout(ctx, r.queryTimeout)
 	defer cancel()
 	if _, err := r.tx.Executor(queryCtx).Exec(queryCtx, query, args...); err != nil {
-		return fmt.Errorf("lock idempotency key: %w", err)
+		return fmt.Errorf("lock idempotency key (SQL %q): %w", query, err)
 	}
 	return nil
 }
@@ -98,7 +98,7 @@ func (r *Repository) GetIdempotency(ctx context.Context, key uuid.UUID) (model.I
 		if errors.Is(err, pgx.ErrNoRows) {
 			return model.IdempotencyRecord{}, tripdomain.ErrNotFound
 		}
-		return model.IdempotencyRecord{}, fmt.Errorf("get idempotency key: %w", err)
+		return model.IdempotencyRecord{}, fmt.Errorf("get idempotency key (SQL %q): %w", query, err)
 	}
 	if err := json.Unmarshal(snapshot, &record.Trip); err != nil {
 		return model.IdempotencyRecord{}, fmt.Errorf("decode saved trip: %w", err)
@@ -115,7 +115,7 @@ func (r *Repository) DeleteIdempotency(ctx context.Context, key uuid.UUID) error
 	queryCtx, cancel := context.WithTimeout(ctx, r.queryTimeout)
 	defer cancel()
 	if _, err := r.tx.Executor(queryCtx).Exec(queryCtx, query, args...); err != nil {
-		return fmt.Errorf("delete idempotency key: %w", err)
+		return fmt.Errorf("delete idempotency key (SQL %q): %w", query, err)
 	}
 	return nil
 }
@@ -135,7 +135,7 @@ func (r *Repository) InsertIdempotency(ctx context.Context, key uuid.UUID, hash 
 	queryCtx, cancel := context.WithTimeout(ctx, r.queryTimeout)
 	defer cancel()
 	if _, err := r.tx.Executor(queryCtx).Exec(queryCtx, query, args...); err != nil {
-		return fmt.Errorf("insert idempotency key: %w", err)
+		return fmt.Errorf("insert idempotency key (SQL %q): %w", query, err)
 	}
 	return nil
 }
@@ -167,7 +167,7 @@ func (r *Repository) get(ctx context.Context, id uuid.UUID, forUpdate bool) (tri
 		return tripdomain.Trip{}, tripdomain.ErrNotFound
 	}
 	if err != nil {
-		return tripdomain.Trip{}, fmt.Errorf("get trip: %w", err)
+		return tripdomain.Trip{}, fmt.Errorf("get trip (SQL %q): %w", query, err)
 	}
 	return trip, nil
 }
@@ -187,10 +187,10 @@ func (r *Repository) SaveCompletion(ctx context.Context, trip tripdomain.Trip) e
 	defer cancel()
 	result, err := r.tx.Executor(queryCtx).Exec(queryCtx, query, args...)
 	if err != nil {
-		return fmt.Errorf("save trip completion: %w", err)
+		return fmt.Errorf("save trip completion (SQL %q): %w", query, err)
 	}
 	if result.RowsAffected() != 1 {
-		return fmt.Errorf("save trip completion: expected one active row for trip %s", trip.ID)
+		return fmt.Errorf("save trip completion (SQL %q): expected one active row, got %d", query, result.RowsAffected())
 	}
 	return nil
 }
@@ -201,7 +201,7 @@ func (r *Repository) CountActive(ctx context.Context) (int64, error) {
 	var count int64
 	const query = "SELECT count(*) FROM trips WHERE status = $1"
 	if err := r.tx.Executor(queryCtx).QueryRow(queryCtx, query, tripdomain.StatusActive).Scan(&count); err != nil {
-		return 0, fmt.Errorf("count active trips: %w", err)
+		return 0, fmt.Errorf("count active trips (SQL %q): %w", query, err)
 	}
 	return count, nil
 }

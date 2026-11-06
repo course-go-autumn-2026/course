@@ -8,7 +8,11 @@ import (
 	"github.com/DaleCoopTP/grishin_lab1/internal/generated"
 )
 
-var ErrInvalidRequest = errors.New("invalid request")
+var (
+	ErrInvalidRequest   = errors.New("invalid request")
+	ErrRouteNotFound    = errors.New("route not found")
+	ErrMethodNotAllowed = errors.New("method not allowed")
+)
 
 func Problem(err error) (int, api.Problem) {
 	code := "internal_error"
@@ -16,6 +20,10 @@ func Problem(err error) (int, api.Problem) {
 	switch {
 	case errors.Is(err, ErrInvalidRequest), errors.As(err, &validationError):
 		code = "invalid_request"
+	case errors.Is(err, ErrRouteNotFound):
+		code = "route_not_found"
+	case errors.Is(err, ErrMethodNotAllowed):
+		code = "method_not_allowed"
 	case errors.Is(err, trip.ErrNotFound):
 		code = "trip_not_found"
 	case errors.Is(err, trip.ErrCompleted):
@@ -36,6 +44,12 @@ func problemFor(code string) api.Problem {
 	case "invalid_request":
 		problem.Status, problem.Title, problem.Type = http.StatusBadRequest, "Invalid request", "https://tripgo.example/problems/invalid-request"
 		detail = "Request validation failed"
+	case "route_not_found":
+		problem.Status, problem.Title, problem.Type = http.StatusNotFound, "Route not found", "https://tripgo.example/problems/route-not-found"
+		detail = "No route matches the request path"
+	case "method_not_allowed":
+		problem.Status, problem.Title, problem.Type = http.StatusMethodNotAllowed, "Method not allowed", "https://tripgo.example/problems/method-not-allowed"
+		detail = "The request method is not supported for this path"
 	case "trip_not_found":
 		problem.Status, problem.Title, problem.Type = http.StatusNotFound, "Trip not found", "https://tripgo.example/problems/trip-not-found"
 		detail = "Trip was not found"

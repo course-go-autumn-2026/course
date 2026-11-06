@@ -40,7 +40,7 @@ func (m *Manager) Do(ctx context.Context, fn func(ctx context.Context) error) (e
 
 	tx, err := m.pool.BeginTx(txCtx, pgx.TxOptions{IsoLevel: pgx.ReadCommitted})
 	if err != nil {
-		return fmt.Errorf("begin transaction: %w", err)
+		return fmt.Errorf("begin transaction (SQL %q): %w", "BEGIN ISOLATION LEVEL READ COMMITTED", err)
 	}
 
 	committed := false
@@ -51,7 +51,7 @@ func (m *Manager) Do(ctx context.Context, fn func(ctx context.Context) error) (e
 		rollbackCtx, rollbackCancel := context.WithTimeout(context.WithoutCancel(ctx), m.queryTimeout)
 		defer rollbackCancel()
 		if rollbackErr := tx.Rollback(rollbackCtx); rollbackErr != nil && !errors.Is(rollbackErr, pgx.ErrTxClosed) {
-			err = errors.Join(err, fmt.Errorf("rollback transaction: %w", rollbackErr))
+			err = errors.Join(err, fmt.Errorf("rollback transaction (SQL %q): %w", "ROLLBACK", rollbackErr))
 		}
 	}()
 
@@ -59,7 +59,7 @@ func (m *Manager) Do(ctx context.Context, fn func(ctx context.Context) error) (e
 		return err
 	}
 	if err := tx.Commit(txCtx); err != nil {
-		return fmt.Errorf("commit transaction: %w", err)
+		return fmt.Errorf("commit transaction (SQL %q): %w", "COMMIT", err)
 	}
 	committed = true
 	return nil

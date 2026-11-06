@@ -171,6 +171,10 @@ END $$`, functionName, driverID)
 	if !errors.As(err, &pgErr) || pgErr.Code != "P0001" || pgErr.Message != "forced history failure" {
 		t.Fatalf("expected forced history failure, got %v", err)
 	}
+	const historySQL = "INSERT INTO trip_status_history (trip_id,from_status,to_status,reason,changed_at) VALUES ($1,$2,$3,$4,$5)"
+	if !strings.Contains(err.Error(), historySQL) || strings.Contains(err.Error(), driverID.String()) {
+		t.Fatalf("expected a parameterized SQL template in the error, got %v", err)
+	}
 	var count int
 	if err := pool.QueryRow(ctx, "SELECT count(*) FROM trips WHERE driver_id = $1", driverID).Scan(&count); err != nil || count != 0 {
 		t.Fatalf("trip survived rollback: count %d, error %v", count, err)

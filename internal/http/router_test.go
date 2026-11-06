@@ -14,6 +14,8 @@ import (
 	"github.com/DaleCoopTP/grishin_lab1/internal/http/response"
 )
 
+const tripsPath = "/api/v1/trips"
+
 func TestRouter(t *testing.T) {
 	id, key := uuid.New(), uuid.New()
 	cases := []struct {
@@ -21,14 +23,14 @@ func TestRouter(t *testing.T) {
 		invalid            bool
 		key                string
 	}{
-		{"create", http.MethodPost, "/api/v1/trips", false, key.String()},
-		{"get", http.MethodGet, "/api/v1/trips/" + id.String(), false, ""},
-		{"finish", http.MethodPost, "/api/v1/trips/" + id.String() + "/finish", false, ""},
+		{"create", http.MethodPost, tripsPath, false, key.String()},
+		{"get", http.MethodGet, tripsPath + "/" + id.String(), false, ""},
+		{"finish", http.MethodPost, tripsPath + "/" + id.String() + "/finish", false, ""},
 		{"health", http.MethodGet, "/health", false, ""},
 		{"ready", http.MethodGet, "/ready", false, ""},
-		{"invalid get UUID", http.MethodGet, "/api/v1/trips/bad", true, ""},
-		{"invalid finish UUID", http.MethodPost, "/api/v1/trips/bad/finish", true, ""},
-		{"invalid key", http.MethodPost, "/api/v1/trips", true, "bad"},
+		{"invalid get UUID", http.MethodGet, tripsPath + "/bad", true, ""},
+		{"invalid finish UUID", http.MethodPost, tripsPath + "/bad/finish", true, ""},
+		{"invalid key", http.MethodPost, tripsPath, true, "bad"},
 	}
 	for _, tc := range cases {
 		t.Run(tc.name, func(t *testing.T) {
@@ -74,6 +76,33 @@ func TestRouter(t *testing.T) {
 			}
 			if out.Code != expected {
 				t.Fatalf("status %d, body %s", out.Code, out.Body.String())
+			}
+		})
+	}
+}
+
+func TestRouterRoutingErrors(t *testing.T) {
+	router := httptransport.NewRouter(nil, nil, nil, nil, nil, response.New())
+	for _, tc := range []struct {
+		method, path, code, allow string
+		status                    int
+	}{
+		{http.MethodGet, "/missing", "route_not_found", "", http.StatusNotFound},
+		{http.MethodGet, tripsPath, "method_not_allowed", http.MethodPost, http.StatusMethodNotAllowed},
+		{http.MethodPost, "/health", "method_not_allowed", http.MethodGet, http.StatusMethodNotAllowed},
+	} {
+		t.Run(tc.method+" "+tc.path, func(t *testing.T) {
+			out := httptest.NewRecorder()
+			router.ServeHTTP(out, httptest.NewRequest(tc.method, tc.path, nil))
+			if out.Code != tc.status || out.Header().Get("Content-Type") != "application/problem+json" || out.Header().Get("Allow") != tc.allow {
+				t.Fatalf("status %d, headers %v, body %s", out.Code, out.Header(), out.Body.String())
+			}
+			var body api.Problem
+			if err := json.Unmarshal(out.Body.Bytes(), &body); err != nil {
+				t.Fatal(err)
+			}
+			if body.Code != tc.code || int(body.Status) != tc.status || body.Instance == nil || *body.Instance != tc.path || body.Type == "" || body.Title == "" {
+				t.Fatalf("unexpected Problem: %s", out.Body.String())
 			}
 		})
 	}

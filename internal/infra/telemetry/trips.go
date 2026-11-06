@@ -35,7 +35,7 @@ func NewTripEvents(meter metric.Meter, logger *slog.Logger, reader activeTripRea
 	if _, err := meter.RegisterCallback(func(ctx context.Context, observer metric.Observer) error {
 		count, err := reader.CountActive(ctx)
 		if err != nil {
-			logger.WarnContext(ctx, "active trip count failed", "error.type", fmt.Sprintf("%T", err))
+			logger.WarnContext(ctx, "active trip count failed", "error", err.Error())
 			return nil
 		}
 		observer.ObserveInt64(active, count)

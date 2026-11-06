@@ -22,6 +22,8 @@ func TestProblem(t *testing.T) {
 		{"driver busy", trip.ErrDriverBusy, 409, "driver_busy"},
 		{"key conflict", trip.ErrIdempotencyConflict, 409, "idempotency_conflict"},
 		{"request", domainerror.ErrInvalidRequest, 400, "invalid_request"},
+		{"unknown route", domainerror.ErrRouteNotFound, 404, "route_not_found"},
+		{"unsupported method", domainerror.ErrMethodNotAllowed, 405, "method_not_allowed"},
 		{"domain validation", fmt.Errorf("create: %w", &trip.ValidationError{Field: "price", Reason: "negative"}), 400, "invalid_request"},
 		{"internal", errors.New("private database credentials"), 500, "internal_error"},
 	}

@@ -1,7 +1,10 @@
 package httptransport
 
 import (
+	"maps"
 	"net/http"
+	"slices"
+	"strings"
 
 	"github.com/go-chi/chi/v5"
 
@@ -31,7 +34,36 @@ func NewRouter(create createHandler, get, finish tripHandler,
 			response.Error(w, r, domainerror.ErrInvalidRequest)
 		},
 	})
+	router.NotFound(func(w http.ResponseWriter, r *http.Request) {
+		response.Error(w, r, domainerror.ErrRouteNotFound)
+	})
+	methods := registeredMethods(router)
+	router.MethodNotAllowed(func(w http.ResponseWriter, r *http.Request) {
+		path := r.URL.RawPath
+		if path == "" {
+			path = r.URL.Path
+		}
+		ctx := chi.NewRouteContext()
+		allowed := make([]string, 0, len(methods))
+		for _, method := range methods {
+			ctx.Reset()
+			if router.Match(ctx, method, path) {
+				allowed = append(allowed, method)
+			}
+		}
+		w.Header().Set("Allow", strings.Join(allowed, ", "))
+		response.Error(w, r, domainerror.ErrMethodNotAllowed)
+	})
 	return router
+}
+
+func registeredMethods(router chi.Routes) []string {
+	methods := make(map[string]struct{})
+	_ = chi.Walk(router, func(method, _ string, _ http.Handler, _ ...func(http.Handler) http.Handler) error {
+		methods[method] = struct{}{}
+		return nil
+	})
+	return slices.Sorted(maps.Keys(methods))
 }
 
 func (h *serverHandlers) CreateTrip(w http.ResponseWriter, r *http.Request, params api.CreateTripParams) {
