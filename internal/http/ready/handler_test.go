@@ -17,21 +17,27 @@ import (
 func TestReadiness(t *testing.T) {
 	for _, available := range []bool{true, false} {
 		t.Run(map[bool]string{true: "available", false: "unavailable"}[available], func(t *testing.T) {
+			var pingErr error
+			if !available {
+				pingErr = errors.New("connection refused")
+			}
 			checker := NewMockchecker(gomock.NewController(t))
 			checker.EXPECT().Ping(gomock.Any()).DoAndReturn(func(ctx context.Context) error {
 				deadline, ok := ctx.Deadline()
 				if !ok || time.Until(deadline) > time.Second {
 					t.Fatal("readiness check must have a bounded context")
 				}
-				if !available {
-					return errors.New("unavailable")
-				}
-				return nil
+				return pingErr
 			})
 			writer := response.New()
 			handler := ready.New(checker, time.Second, writer)
 			out := httptest.NewRecorder()
-			handler.ServeHTTP(out, httptest.NewRequest("GET", "/ready", nil))
+			var recordedErr error
+			ctx := response.WithErrorRecorder(t.Context(), func(err error) { recordedErr = err })
+			handler.ServeHTTP(out, httptest.NewRequestWithContext(ctx, "GET", "/ready", nil))
+			if recordedErr != pingErr {
+				t.Fatalf("recorded error = %v, want %v", recordedErr, pingErr)
+			}
 			status, body := 200, `{"status":"ok"}`
 			if !available {
 				status, body = 503, `{"status":"unavailable"}`

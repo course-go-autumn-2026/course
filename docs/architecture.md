@@ -1,7 +1,7 @@
 # Архитектура Trip Service
 
-Документ описывает текущую реализацию в процессе рефакторинга ЛР2. Полные
-требования находятся в [условии ЛР2](course/homework/tasks/02-architecture-and-observability/README.md).
+Документ описывает реализацию сервиса после ЛР2. Полные требования находятся в
+[условии ЛР2](course/homework/tasks/02-architecture-and-observability/README.md).
 Запуск, конфигурация и команды описаны в [README сервиса](../README.md).
 
 ## Назначение и границы

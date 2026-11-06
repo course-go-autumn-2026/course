@@ -23,6 +23,7 @@ func (h *Handler) ServeHTTP(w http.ResponseWriter, r *http.Request) {
 	ctx, cancel := context.WithTimeout(r.Context(), h.timeout)
 	defer cancel()
 	if err := h.checker.Ping(ctx); err != nil {
+		response.RecordError(ctx, err)
 		h.response.JSON(w, r, http.StatusServiceUnavailable, api.HealthResponse{Status: api.Unavailable})
 		return
 	}

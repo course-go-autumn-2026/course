@@ -30,7 +30,10 @@ type queryTracer struct {
 }
 
 func NewQueryTracer(provider trace.TracerProvider, meter metric.Meter) (pgx.QueryTracer, error) {
-	duration, err := meter.Float64Histogram("db.client.operation.duration", metric.WithUnit("s"))
+	duration, err := meter.Float64Histogram("db.client.operation.duration",
+		metric.WithUnit("s"),
+		metric.WithExplicitBucketBoundaries(0.001, 0.005, 0.01, 0.05, 0.1, 0.5, 1, 5, 10),
+	)
 	if err != nil {
 		return nil, fmt.Errorf("create database duration histogram: %w", err)
 	}

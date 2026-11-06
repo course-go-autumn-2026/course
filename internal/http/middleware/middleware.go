@@ -35,12 +35,16 @@ type stateKey struct{}
 type requestState struct {
 	method, route string
 	status        int
+	err           error
 	log           func(int, time.Duration, []byte)
 	record        func(int, time.Duration)
 }
 
 func Wrap(router chi.Router, writer *response.Writer, logger *slog.Logger, tracer trace.TracerProvider, meter metric.Meter) (http.Handler, error) {
-	duration, err := meter.Float64Histogram("http.server.request.duration", metric.WithUnit("s"))
+	duration, err := meter.Float64Histogram("http.server.request.duration",
+		metric.WithUnit("s"),
+		metric.WithExplicitBucketBoundaries(0.005, 0.01, 0.025, 0.05, 0.075, 0.1, 0.25, 0.5, 0.75, 1, 2.5, 5, 7.5, 10),
+	)
 	if err != nil {
 		return nil, fmt.Errorf("create HTTP duration histogram: %w", err)
 	}
@@ -58,7 +62,8 @@ func recoverRequests(router chi.Router, next http.Handler, writer *response.Writ
 	return http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
 		start := time.Now()
 		state := &requestState{method: requestMethod(r.Method), route: routePattern(router, r)}
-		r = r.WithContext(context.WithValue(r.Context(), stateKey{}, state))
+		ctx := context.WithValue(r.Context(), stateKey{}, state)
+		r = r.WithContext(response.WithErrorRecorder(ctx, func(err error) { state.err = err }))
 		w = captureStatus(w, state)
 		defer func() {
 			var stack []byte
@@ -157,6 +162,8 @@ func logRequest(ctx context.Context, logger *slog.Logger, state *requestState, s
 	}
 	if len(stack) > 0 {
 		attrs = append(attrs, slog.String("error.type", "panic"), slog.String("stack", string(stack)))
+	} else if state.err != nil && status >= http.StatusInternalServerError {
+		attrs = append(attrs, slog.String("error", state.err.Error()))
 	}
 	logger.LogAttrs(ctx, level, "request handled", attrs...)
 }

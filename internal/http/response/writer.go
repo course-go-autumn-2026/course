@@ -1,6 +1,7 @@
 package response
 
 import (
+	"context"
 	"encoding/json"
 	"net/http"
 
@@ -8,6 +9,18 @@ import (
 )
 
 type Writer struct{}
+
+type errorRecorderKey struct{}
+
+func WithErrorRecorder(ctx context.Context, record func(error)) context.Context {
+	return context.WithValue(ctx, errorRecorderKey{}, record)
+}
+
+func RecordError(ctx context.Context, err error) {
+	if record, ok := ctx.Value(errorRecorderKey{}).(func(error)); ok {
+		record(err)
+	}
+}
 
 func New() *Writer {
 	return &Writer{}
@@ -19,8 +32,12 @@ func (w *Writer) Error(out http.ResponseWriter, r *http.Request, err error) {
 	body.Instance = &path
 	data, marshalErr := json.Marshal(body)
 	if marshalErr != nil {
+		RecordError(r.Context(), marshalErr)
 		http.Error(out, "Internal server error", http.StatusInternalServerError)
 		return
+	}
+	if status >= http.StatusInternalServerError {
+		RecordError(r.Context(), err)
 	}
 	out.Header().Set("Content-Type", "application/problem+json")
 	out.WriteHeader(status)
