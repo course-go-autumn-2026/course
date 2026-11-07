@@ -69,6 +69,14 @@ linters:
               desc: usecase работает через интерфейсы, а не через драйвер бд
             - pkg: github.com/Masterminds/squirrel
               desc: usecase не строит SQL
+        http:
+          files:
+            - "**/internal/http/**"
+          deny:
+            - pkg: github.com/Smoz1e/Bulatov_Ilya_Lab/internal/repository
+              desc: HTTP работает через интерфейсы, а не через репозитории
+            - pkg: github.com/Smoz1e/Bulatov_Ilya_Lab/internal/infra
+              desc: HTTP не зависит от инфраструктуры
 
     # Запрещает обращения через идентификатор с подчёркиванием, поэтому пакеты
     # называем без snake_case: internal/adapter/http, а не internal/adapter/http_server.
