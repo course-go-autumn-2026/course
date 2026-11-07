@@ -34,6 +34,13 @@ func NewTripRepository(
 	}
 }
 
+func (repository *TripRepository) Ping(ctx context.Context) error {
+	queryCtx, cancel := context.WithTimeout(ctx, repository.queryTimeout)
+	defer cancel()
+
+	return repository.pool.Ping(queryCtx)
+}
+
 func (repository *TripRepository) Create(
 	ctx context.Context,
 	value trip.Trip,

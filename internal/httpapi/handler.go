@@ -3,29 +3,28 @@ package httpapi
 import (
 	"context"
 	"net/http"
-	"time"
 
 	"github.com/Smoz1e/Bulatov_Ilya_Lab/api"
 	"github.com/Smoz1e/Bulatov_Ilya_Lab/internal/trip"
-	"github.com/jackc/pgx/v5/pgxpool"
 )
+
+type readinessChecker interface {
+	Ping(context.Context) error
+}
 
 type Handler struct {
 	api.Unimplemented
-	pool         *pgxpool.Pool
-	queryTimeout time.Duration
-	service      *trip.Service
+	readiness readinessChecker
+	service   *trip.Service
 }
 
 func NewHandler(
-	pool *pgxpool.Pool,
-	queryTimeout time.Duration,
+	readiness readinessChecker,
 	service *trip.Service,
 ) *Handler {
 	return &Handler{
-		pool:         pool,
-		queryTimeout: queryTimeout,
-		service:      service,
+		readiness: readiness,
+		service:   service,
 	}
 }
 
@@ -36,10 +35,7 @@ func (handler *Handler) Health(w http.ResponseWriter, r *http.Request) {
 }
 
 func (handler *Handler) Ready(w http.ResponseWriter, r *http.Request) {
-	ctx, cancel := context.WithTimeout(r.Context(), handler.queryTimeout)
-	defer cancel()
-
-	if err := handler.pool.Ping(ctx); err != nil {
+	if err := handler.readiness.Ping(r.Context()); err != nil {
 		writeJSON(w, http.StatusServiceUnavailable, api.HealthResponse{
 			Status: api.Unavailable,
 		})

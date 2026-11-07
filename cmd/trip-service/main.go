@@ -69,8 +69,7 @@ func run(ctx context.Context) error {
 
 	httpHandler := api.HandlerWithOptions(
 		httpapi.NewHandler(
-			pool,
-			cfg.Database.QueryTimeout,
+			tripRepository,
 			tripService,
 		),
 		api.ChiServerOptions{
