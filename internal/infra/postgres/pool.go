@@ -20,7 +20,9 @@ func NewPool(ctx context.Context, cfg config.DatabaseConfig) (*pgxpool.Pool, err
 	poolConfig.MinConns = cfg.MinConns
 	poolConfig.MaxConnLifetime = cfg.MaxConnLifetime
 	poolConfig.ConnConfig.ConnectTimeout = cfg.ConnectTimeout
-	poolConfig.ConnConfig.Tracer = otelpgx.NewTracer()
+	poolConfig.ConnConfig.Tracer = otelpgx.NewTracer(
+		otelpgx.WithMetricOperationName(otelpgx.SQLOperationName),
+	)
 
 	pool, err := pgxpool.NewWithConfig(ctx, poolConfig)
 	if err != nil {
