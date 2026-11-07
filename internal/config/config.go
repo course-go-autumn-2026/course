@@ -36,19 +36,19 @@ func Load() (Config, error) {
 		return Config{}, err
 	}
 
-	if cfg.HTTPReadTimeout, err = positiveDuration("HTTP_READ_TIMEOUT"); err != nil {
+	if cfg.HTTPReadTimeout, err = durationWithDefault("HTTP_READ_TIMEOUT", 5*time.Second); err != nil {
 		return Config{}, err
 	}
 
-	if cfg.HTTPReadHeaderTimeout, err = positiveDuration("HTTP_READ_HEADER_TIMEOUT"); err != nil {
+	if cfg.HTTPReadHeaderTimeout, err = durationWithDefault("HTTP_READ_HEADER_TIMEOUT", 2*time.Second); err != nil {
 		return Config{}, err
 	}
 
-	if cfg.HTTPWriteTimeout, err = positiveDuration("HTTP_WRITE_TIMEOUT"); err != nil {
+	if cfg.HTTPWriteTimeout, err = durationWithDefault("HTTP_WRITE_TIMEOUT", 10*time.Second); err != nil {
 		return Config{}, err
 	}
 
-	if cfg.HTTPIdleTimeout, err = positiveDuration("HTTP_IDLE_TIMEOUT"); err != nil {
+	if cfg.HTTPIdleTimeout, err = durationWithDefault("HTTP_IDLE_TIMEOUT", 60*time.Second); err != nil {
 		return Config{}, err
 	}
 	if cfg.LogLevel, err = required("LOG_LEVEL"); err != nil {
@@ -115,6 +115,13 @@ func positiveDuration(key string) (time.Duration, error) {
 	}
 
 	return duration, nil
+}
+
+func durationWithDefault(key string, fallback time.Duration) (time.Duration, error) {
+	if _, ok := os.LookupEnv(key); !ok {
+		return fallback, nil
+	}
+	return positiveDuration(key)
 }
 
 func positiveInt32(key string) (int32, error) {
