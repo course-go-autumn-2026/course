@@ -60,7 +60,7 @@ func (handler *Handler) CreateTrip(
 			http.StatusBadRequest,
 			"Invalid request",
 			"invalid_request",
-			err.Error(),
+			"Request validation failed",
 		)
 		return
 	}
@@ -73,7 +73,7 @@ func (handler *Handler) CreateTrip(
 			http.StatusBadRequest,
 			"Invalid request",
 			"invalid_request",
-			err.Error(),
+			"Request validation failed",
 		)
 		return
 	}

@@ -57,7 +57,7 @@ func writeJSONWithContentType(
 func HandleOpenAPIError(
 	w http.ResponseWriter,
 	r *http.Request,
-	err error,
+	_ error,
 ) {
 	writeProblem(
 		w,
@@ -65,7 +65,7 @@ func HandleOpenAPIError(
 		http.StatusBadRequest,
 		"Invalid request",
 		"invalid_request",
-		err.Error(),
+		"Request validation failed",
 	)
 }
 
@@ -92,7 +92,7 @@ func writeServiceError(
 			http.StatusNotFound,
 			"Trip not found",
 			"trip_not_found",
-			"Trip does not exist",
+			"Trip was not found",
 		)
 
 	case errors.Is(err, trip.ErrTripCompleted):
@@ -102,7 +102,7 @@ func writeServiceError(
 			http.StatusConflict,
 			"Trip completed",
 			"trip_completed",
-			"Trip is already completed",
+			"Operation is not allowed for a completed trip",
 		)
 
 	default:
@@ -110,9 +110,9 @@ func writeServiceError(
 			w,
 			r,
 			http.StatusInternalServerError,
-			"Internal server error",
+			"Internal Server Error",
 			"internal_error",
-			"An unexpected error occurred",
+			"Internal server error",
 		)
 	}
 }
