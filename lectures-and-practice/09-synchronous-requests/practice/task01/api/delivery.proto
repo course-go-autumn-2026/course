@@ -1,0 +1,15 @@
+syntax = "proto3";
+package task01.delivery.v1;
+option go_package = "example.com/sync-practice/task01/api;deliveryv1";
+
+service DeliveryService {
+  rpc Estimate(EstimateRequest) returns (EstimateResponse);
+}
+message EstimateRequest {
+  string address = 1;
+  int64 weight_grams = 2;
+}
+message EstimateResponse {
+  int64 price_kopecks = 1;
+  // TODO: добавьте eta_minutes, целое число минут, поле 2.
+}

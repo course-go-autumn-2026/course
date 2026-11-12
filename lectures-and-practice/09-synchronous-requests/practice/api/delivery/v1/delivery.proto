@@ -1,0 +1,15 @@
+syntax = "proto3";
+package delivery.v1;
+option go_package = "example.com/sync-practice/api/delivery/v1;deliveryv1";
+
+service DeliveryService {
+  rpc Estimate(EstimateRequest) returns (EstimateResponse);
+}
+message EstimateRequest {
+  string address = 1;
+  int64 weight_grams = 2;
+}
+message EstimateResponse {
+  int64 price_kopecks = 1;
+  int32 eta_minutes = 2;
+}
