@@ -52,13 +52,13 @@ URL: иначе на каждую поездку заведётся своя в�
 | `tripgo.stale_checks` | counter | штуки | `result` = `queued` \| `duplicate` \| `dropped` | что сканер сделал с поездкой на этом тике |
 | `tripgo.position_requests.queue.size` | gauge | штуки | — | сколько задач сейчас в очереди |
 | `tripgo.position_requests.workers.active` | gauge | штуки | — | сколько воркеров сейчас заняты |
-| `tripgo.position_requests` | counter | штуки | `result` = `success` \| `error` \| `dropped` | чем закончилась попытка запросить координату |
+| `tripgo.position_requests` | counter | штуки | `result` = `success` \| `error` \| `cancelled` | чем закончилась попытка запросить координату; `cancelled` — координата пришла, пока задача ждала в очереди |
 | `tripgo.position_requests.duration` | histogram | секунды | `result` | сколько занял вызов Push Service |
 
 Что читать по этим метрикам:
 
-- `dropped` растёт — очередь переполнена, часть поездок остаётся без опроса. Это
-  первое, что смотрят, когда пропали пуши;
+- `dropped` в `stale_checks` растёт — очередь переполнена, часть поездок на этом
+  тике остаётся без опроса. Это первое, что смотрят, когда пропали пуши;
 - `workers.active` упёрся в `POSITION_WORKERS`, а `queue.size` растёт — сосед
   отвечает медленнее, чем мы успеваем разгребать;
 - `duplicate` в `stale_checks` — нормально: поездка уже стоит в очереди, значит
