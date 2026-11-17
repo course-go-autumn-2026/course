@@ -8,14 +8,21 @@ import (
 
 // Задание 1: общая map и Mutex. Каркас ожидания уже дан.
 func PackAll(items []PackRequest, work Packer) []PackedOrder {
+	if len(items) <= 0 {
+		return nil
+	}
+
 	results := make(map[int]PackedOrder)
 	var wg sync.WaitGroup
-	// TODO: объявите общий мьютекс для results.
+	var mu sync.Mutex
 	for index, item := range items {
 		wg.Add(1)
 		go func(index int, item PackRequest) {
 			defer wg.Done()
-			// TODO: вызовите work вне блокировки и сохраните результат под мьютексом.
+			res := work(item)
+			mu.Lock()
+			defer mu.Unlock()
+			results[index] = res
 		}(index, item)
 	}
 	wg.Wait()
@@ -28,8 +35,23 @@ func PackAll(items []PackRequest, work Packer) []PackedOrder {
 
 // Задание 2: Fan-out / Fan-in. Каркас объединения потоков уже дан.
 func FanOut(in <-chan PackRequest, workers int, work Packer) []<-chan PackedOrder {
-	// TODO: workers горутин читают общую очередь; у каждой собственный выход.
-	return nil
+	if workers <= 0 {
+		return nil
+	}
+	result := make([]<-chan PackedOrder, workers)
+	for i := 0; i < workers; i++ {
+		ch := make(chan PackedOrder)
+		result[i] = ch
+		go func() {
+			defer close(ch)
+			for req := range in {
+				ans := work(req)
+				ch <- ans
+			}
+		}()
+	}
+
+	return result
 }
 func FanIn(streams ...<-chan PackedOrder) <-chan PackedOrder {
 	out := make(chan PackedOrder)
@@ -38,7 +60,9 @@ func FanIn(streams ...<-chan PackedOrder) <-chan PackedOrder {
 		wg.Add(1)
 		go func(stream <-chan PackedOrder) {
 			defer wg.Done()
-			// TODO: пересылайте сообщения stream в out, пока stream не закроется.
+			for v := range stream {
+				out <- v
+			}
 		}(stream)
 	}
 	go func() { wg.Wait(); close(out) }()
@@ -48,5 +72,22 @@ func FanIn(streams ...<-chan PackedOrder) <-chan PackedOrder {
 // Задание 3: таймер или тикер и контекст.
 // TODO: выполните контракт из README.
 func RunPackingReport(ctx context.Context, interval time.Duration, report func()) error {
-	return ErrNotImplemented
+	if interval <= 0 {
+		return ErrInvalidInterval
+	}
+	if err := ctx.Err(); err != nil {
+		return err
+	}
+
+	ticker := time.NewTicker(interval)
+	defer ticker.Stop()
+
+	for {
+		select {
+		case <-ctx.Done():
+			return ctx.Err()
+		case <-ticker.C:
+			report()
+		}
+	}
 }
