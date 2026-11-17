@@ -10,12 +10,16 @@ import (
 func PrepareAllCouriers(items []CourierTask, work CardBuilder) []CourierCard {
 	results := make(map[int]CourierCard)
 	var wg sync.WaitGroup
-	// TODO: объявите общий мьютекс для results.
+	var mu sync.Mutex
 	for index, item := range items {
 		wg.Add(1)
 		go func(index int, item CourierTask) {
 			defer wg.Done()
 			// TODO: вызовите work вне блокировки и сохраните результат под мьютексом.
+			card := work(item)
+			mu.Lock()
+			results[index] = card
+			mu.Unlock()
 		}(index, item)
 	}
 	wg.Wait()
