@@ -1,0 +1,6 @@
+max@PC:~/projects/practice1711/course/lectures-and-practice/08-concurrency/practice/variants/notifications$ gofmt -w practice.go student_test.go
+max@PC:~/projects/practice1711/course/lectures-and-practice/08-concurrency/practice/variants/notifications$ go test -timeout 30s ./...
+ok      example.com/slicelab/notifications      (cached)
+max@PC:~/projects/practice1711/course/lectures-and-practice/08-concurrency/practice/variants/notifications$ go test -race -timeout 30s ./...
+ok      example.com/slicelab/notifications      (cached)
+max@PC:~/projects/practice1711/course/lectures-and-practice/08-concurrency/practice/variants/notifications$ 
